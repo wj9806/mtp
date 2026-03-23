@@ -22,6 +22,8 @@ public class ThreadPoolConfig implements Serializable {
     private String rejectedPolicy;
     private String applicationName;
     private Long registerTime;
+
+    //md5 applicationName@ip:port
     private String instanceId;
     private String ip;
     private Integer port;

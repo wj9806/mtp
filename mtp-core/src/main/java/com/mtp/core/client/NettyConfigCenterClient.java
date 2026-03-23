@@ -110,10 +110,10 @@ public class NettyConfigCenterClient implements ConfigCenterClient {
     }
 
     @Override
-    public List<ThreadPoolConfig> getConfigsByPoolName(String applicationName, String poolName) {
+    public List<ThreadPoolConfig> getConfigsByInstanceId(String instanceId, String poolName) {
         try {
             Map<String, Object> params = new ConcurrentHashMap<>();
-            params.put("applicationName", applicationName);
+            params.put("instanceId", instanceId);
             params.put("poolName", poolName);
             return nettyClient.sendRequest(MessageType.GET_CONFIGS_BY_POOL, params, new TypeReference<List<ThreadPoolConfig>>() {});
         } catch (Exception e) {

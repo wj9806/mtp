@@ -25,8 +25,6 @@ public class ConfigCenterService {
     private final Map<String, Set<InstanceInfo>> applicationInstances;
     private final Set<String> applications;
 
-    public static final String TOPIC_CONFIG_CHANGE = "config_change";
-
     public ConfigCenterService() {
         this.configStore = new ConcurrentHashMap<>();
         this.statusStore = new ConcurrentHashMap<>();
@@ -57,6 +55,7 @@ public class ConfigCenterService {
     public void unregisterConfig(String instanceId, String poolName) {
         String key = buildConfigKey(instanceId, poolName);
         configStore.remove(key);
+        statusStore.remove(buildStatusKey(instanceId, poolName));
         log.info("Unregistered config: [{}]", key);
     }
 
@@ -168,6 +167,11 @@ public class ConfigCenterService {
             .collect(Collectors.toList());
     }
 
+    public List<ThreadPoolConfig> getConfigsByInstanceId(String instanceId, String poolName) {
+        String key = buildConfigKey(instanceId, poolName);
+        return Collections.singletonList(configStore.get(key));
+    }
+
     public List<ThreadPoolConfig> getConfigsByPoolName(String applicationName, String poolName) {
         return configStore.values().stream()
             .filter(c -> applicationName.equals(c.getApplicationName()))
@@ -227,6 +231,6 @@ public class ConfigCenterService {
     }
 
     private String buildStatusKey(String instanceId, String poolName) {
-        return instanceId + ":" + poolName;
+        return buildConfigKey(instanceId, poolName);
     }
 }

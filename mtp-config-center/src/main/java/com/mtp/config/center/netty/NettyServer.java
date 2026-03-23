@@ -1,10 +1,12 @@
 package com.mtp.config.center.netty;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.mtp.config.center.model.ClientInstance;
 import com.mtp.config.center.netty.handler.*;
 import com.mtp.config.center.service.ConfigCenterService;
 import com.mtp.core.model.ThreadPoolConfig;
 import com.mtp.core.netty.MessageResponse;
+import com.mtp.core.netty.MessageType;
 import io.netty.bootstrap.ServerBootstrap;
 import io.netty.channel.*;
 import io.netty.channel.nio.NioEventLoopGroup;
@@ -22,8 +24,8 @@ import java.nio.charset.StandardCharsets;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.stream.Collectors;
 
 /**
  * Netty服务端，负责接收客户端连接并处理消息
@@ -39,8 +41,7 @@ public class NettyServer {
     private final ObjectMapper objectMapper;
     private final EventLoopGroup bossGroup = new NioEventLoopGroup(1);
     private final EventLoopGroup workerGroup = new NioEventLoopGroup();
-    private final Map<String, Channel> clientChannels = new ConcurrentHashMap<>();
-    private final List<Channel> allChannels = new CopyOnWriteArrayList<>();
+    private final List<ClientInstance> allChannels = new CopyOnWriteArrayList<>();
     private final MessageHandlerRegistry registry;
     private final MessageContext messageContext;
 
@@ -79,7 +80,7 @@ public class NettyServer {
                             pipeline.addLast(new LengthFieldPrepender(4));
                             pipeline.addLast(new StringDecoder(StandardCharsets.UTF_8));
                             pipeline.addLast(new StringEncoder(StandardCharsets.UTF_8));
-                            pipeline.addLast(new ServerHandler(registry, messageContext));
+                            pipeline.addLast(new ServerHandler(registry, messageContext, objectMapper));
                         }
                     });
 
@@ -101,14 +102,15 @@ public class NettyServer {
 
     public void broadcastConfigChange(String applicationName, String poolName, List<ThreadPoolConfig> configs) {
         MessageResponse message = new MessageResponse();
-        message.type = "CONFIG_CHANGE";
+        message.type = MessageType.CONFIG_CHANGE.getType();
         message.applicationName = applicationName;
         message.poolName = poolName;
         message.configs = configs;
 
         try {
             String json = objectMapper.writeValueAsString(message);
-            for (Channel channel : allChannels) {
+            for (ClientInstance clientInstance : findClientInstanceByAppName(applicationName)) {
+                Channel channel = clientInstance.getChannel();
                 if (channel.isActive()) {
                     channel.writeAndFlush(json + "\n");
                 }
@@ -116,6 +118,28 @@ public class NettyServer {
             log.info("Broadcasted config change for {}/{} to {} clients", applicationName, poolName, allChannels.size());
         } catch (Exception e) {
             log.error("Failed to broadcast config change", e);
+        }
+    }
+
+    public void broadcastConfigChangeById(String instanceId, String poolName, ThreadPoolConfig config) {
+        MessageResponse message = new MessageResponse();
+        message.type = MessageType.CONFIG_CHANGE.getType();
+        message.instanceId = instanceId;
+        message.applicationName = config.getApplicationName();
+        message.poolName = poolName;
+        message.configs = Collections.singletonList(config);
+
+        try {
+            String json = objectMapper.writeValueAsString(message);
+            Channel targetChannel = findClientInstanceById(instanceId).getChannel();
+            if (targetChannel != null && targetChannel.isActive()) {
+                targetChannel.writeAndFlush(json + "\n");
+                log.info("Sent config change to instance {} for pool {}", instanceId, poolName);
+            } else {
+                log.warn("Instance {} not found or inactive", instanceId);
+            }
+        } catch (Exception e) {
+            log.error("Failed to send config change by id", e);
         }
     }
 
@@ -128,35 +152,43 @@ public class NettyServer {
         }
     }
 
-    public void broadcastConfigChangeById(String instanceId, String poolName, ThreadPoolConfig config) {
-        MessageResponse message = new MessageResponse();
-        message.type = "CONFIG_CHANGE";
-        message.instanceId = instanceId;
-        message.poolName = poolName;
-        message.configs = Collections.singletonList(config);
-
-        try {
-            String json = objectMapper.writeValueAsString(message);
-            for (Channel channel : allChannels) {
-                if (channel.isActive()) {
-                    channel.writeAndFlush(json + "\n");
-                }
-            }
-            log.info("Broadcasted config change by id for {}/{} to {} clients", instanceId, poolName, allChannels.size());
-        } catch (Exception e) {
-            log.error("Failed to broadcast config change by id", e);
+    /**
+     * 注册实例
+     */
+    public void registerInstance(Channel channel, Map<String, Object> payload) {
+        String instanceId = (String) payload.get("instanceId");
+        if (findClientInstanceById(instanceId) == null) {
+            ClientInstance clientInstance = new ClientInstance();
+            clientInstance.setChannel(channel);
+            clientInstance.setInstanceId(instanceId);
+            clientInstance.setIp((String) payload.get("ip"));
+            clientInstance.setPort((Integer) payload.get("port"));
+            clientInstance.setApplicationName((String) payload.get("applicationName"));
+            allChannels.add(clientInstance);
+            log.info("Instance registered: {}", instanceId);
         }
     }
 
-    public void registerClient(String clientId, Channel channel) {
-        clientChannels.put(clientId, channel);
-        allChannels.add(channel);
-        log.info("Client registered: {}", clientId);
+    public List<ClientInstance> findClientInstanceByAppName(String applicationName) {
+        return allChannels.stream()
+            .filter(c -> c.getApplicationName().equals(applicationName))
+            .collect(Collectors.toList());
+    }
+
+    private ClientInstance findClientInstanceById(String instanceId) {
+        return allChannels.stream()
+            .filter(c -> c.getInstanceId().equals(instanceId))
+            .findFirst()
+            .orElse(null);
+    }
+
+    public void unregisterInstance(String instanceId) {
+        allChannels.removeIf(c -> c.getInstanceId().equals(instanceId));
+        log.info("Instance unregistered: {}", instanceId);
     }
 
     public void removeClient(Channel channel) {
-        allChannels.remove(channel);
-        clientChannels.entrySet().removeIf(entry -> entry.getValue() == channel);
+        allChannels.removeIf(c -> c.getChannel().equals(channel));
         log.info("Client removed");
     }
 }

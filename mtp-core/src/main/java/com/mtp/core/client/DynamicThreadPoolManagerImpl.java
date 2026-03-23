@@ -23,6 +23,7 @@ import java.util.Objects;
 @Slf4j
 public class DynamicThreadPoolManagerImpl implements DynamicThreadPoolManager {
 
+    private final String instanceId;
     private final Map<String, ThreadPoolExecutor> executors;
     private final Map<String, ThreadPoolConfig> configs;
     private final Set<String> registeredPools;
@@ -31,27 +32,30 @@ public class DynamicThreadPoolManagerImpl implements DynamicThreadPoolManager {
     private final String applicationName;
     private final String ip;
     private final Integer port;
-    private static final ScheduledExecutorService scheduledExecutor = Executors.newSingleThreadScheduledExecutor(r -> {
-        Thread t = new Thread(r);
-        t.setDaemon(true);
-        t.setName("mtp-scheduler");
-        return t;
-    });
+    private final ScheduledExecutorService scheduledExecutor;
     private final AtomicBoolean isConfigCenterAvailable;
     private final int retryIntervalSeconds;
 
-    public DynamicThreadPoolManagerImpl(ConfigCenterClient configCenterClient, NettyClient nettyClient, String applicationName,
-                                        String ip, Integer port, int retryIntervalSeconds) {
+    public DynamicThreadPoolManagerImpl(ConfigCenterClient configCenterClient, NettyClient nettyClient,
+                                        String applicationName, String ip,
+                                        Integer port, int retryIntervalSeconds) {
         this.configCenterClient = configCenterClient;
         this.nettyClient = nettyClient;
         this.applicationName = applicationName;
         this.ip = ip != null ? ip : NetworkUtil.getLocalIp();
         this.port = port;
+        this.instanceId = Md5Util.generateInstanceId(applicationName, ip, port);
         this.retryIntervalSeconds = retryIntervalSeconds;
         this.executors = new ConcurrentHashMap<>();
         this.configs = new ConcurrentHashMap<>();
         this.registeredPools = ConcurrentHashMap.newKeySet();
         this.isConfigCenterAvailable = new AtomicBoolean(false);
+        this.scheduledExecutor = Executors.newSingleThreadScheduledExecutor(r -> {
+            Thread t = new Thread(r);
+            t.setDaemon(true);
+            t.setName("mtp-client-scheduler");
+            return t;
+        });
 
         if (nettyClient != null) {
             subscribeMessage();
@@ -92,7 +96,7 @@ public class DynamicThreadPoolManagerImpl implements DynamicThreadPoolManager {
         config.setApplicationName(applicationName);
         config.setIp(ip);
         config.setPort(port);
-        config.setInstanceId(Md5Util.generateInstanceId(applicationName, ip, port));
+        config.setInstanceId(instanceId);
         config.setRegisterTime(System.currentTimeMillis());
 
         ThreadPoolExecutor executor = createExecutor(config);
@@ -128,6 +132,7 @@ public class DynamicThreadPoolManagerImpl implements DynamicThreadPoolManager {
                 try {
                     configCenterClient.unregister(config.getInstanceId(), poolName);
                 } catch (Exception e) {
+                    log.error("Failed to unregister pool: " + poolName, e);
                 }
             }
         }
@@ -152,12 +157,12 @@ public class DynamicThreadPoolManagerImpl implements DynamicThreadPoolManager {
         executor.setKeepAliveTime(newConfig.getKeepAliveSeconds(), TimeUnit.SECONDS);
         executor.setRejectedExecutionHandler(newConfig.getRejectedExecutionHandler());
 
-        if (configCenterClient != null && registeredPools.contains(poolName)) {
+        /*if (configCenterClient != null && registeredPools.contains(poolName)) {
             try {
                 configCenterClient.updateConfig(newConfig);
             } catch (Exception e) {
             }
-        }
+        }*/
     }
 
     private void doRefreshPool(String poolName, ThreadPoolConfig newConfig) {
@@ -224,7 +229,7 @@ public class DynamicThreadPoolManagerImpl implements DynamicThreadPoolManager {
         ThreadPoolStatus status = new ThreadPoolStatus();
         status.setPoolName(poolName);
         status.setApplicationName(applicationName);
-        status.setInstanceId(Md5Util.generateInstanceId(applicationName, ip, port));
+        status.setInstanceId(instanceId);
         status.setIp(ip);
         status.setPort(port);
         status.setCorePoolSize(executor.getCorePoolSize());
@@ -279,7 +284,7 @@ public class DynamicThreadPoolManagerImpl implements DynamicThreadPoolManager {
 
         configs.forEach((poolName, currentConfig) -> {
             try {
-                List<ThreadPoolConfig> remoteConfigs = configCenterClient.getConfigsByPoolName(applicationName, poolName);
+                List<ThreadPoolConfig> remoteConfigs = configCenterClient.getConfigsByInstanceId(instanceId, poolName);
                 if (remoteConfigs != null && !remoteConfigs.isEmpty()) {
                     ThreadPoolConfig remoteConfig = remoteConfigs.get(0);
                     if (hasConfigChanged(currentConfig, remoteConfig)) {

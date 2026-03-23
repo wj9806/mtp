@@ -33,14 +33,14 @@ public class GetConfigsByPoolHandler implements MessageHandler {
             return buildErrorResponse(request.correlationId, "Invalid payload");
         }
 
-        String applicationName = (String) params.get("applicationName");
+        String instanceId = (String) params.get("instanceId");
         String poolName = (String) params.get("poolName");
 
-        if (applicationName == null || poolName == null) {
+        if (instanceId == null || poolName == null) {
             return buildErrorResponse(request.correlationId, "Missing required parameters");
         }
 
-        List<ThreadPoolConfig> configs = context.getConfigCenterService().getConfigsByPoolName(applicationName, poolName);
+        List<ThreadPoolConfig> configs = context.getConfigCenterService().getConfigsByInstanceId(instanceId, poolName);
         return buildResponse(request.correlationId, MessageType.GET_CONFIGS_BY_POOL, configs);
     }
 

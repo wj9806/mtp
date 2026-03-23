@@ -20,7 +20,7 @@ public interface ConfigCenterClient {
 
     List<ThreadPoolConfig> getAllConfigs(String applicationName);
 
-    List<ThreadPoolConfig> getConfigsByPoolName(String applicationName, String poolName);
+    List<ThreadPoolConfig> getConfigsByInstanceId(String instanceId, String poolName);
 
     void reportStatus(ThreadPoolStatus status);
 

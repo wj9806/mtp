@@ -89,7 +89,7 @@ public class ConfigController {
             List<ThreadPoolConfig> configs = configCenterService.getConfigsByPoolName(applicationName, poolName);
             nettyServer.broadcastConfigChange(applicationName, poolName, configs);
         } catch (Exception e) {
-            e.printStackTrace();
+            log.error("Failed to notify config change", e);
         }
     }
 }
