@@ -2,7 +2,9 @@ package com.mtp.config.center.controller;
 
 import com.mtp.config.center.netty.NettyServer;
 import com.mtp.config.center.service.ConfigCenterService;
+import com.mtp.config.center.service.PagedResult;
 import com.mtp.core.model.ThreadPoolConfig;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -13,6 +15,7 @@ import java.util.Map;
 /**
  * 配置控制器，提供线程池配置管理的API
  */
+@Slf4j
 @RestController
 @RequestMapping("/api/config")
 public class ConfigController {
@@ -34,18 +37,34 @@ public class ConfigController {
 
     @PutMapping("/update")
     public void update(@RequestBody ThreadPoolConfig config) {
-        configCenterService.updateConfig(config);
-        notifyConfigChange(config.getApplicationName(), config.getPoolName());
+        String instanceId = config.getInstanceId();
+        String poolName = config.getPoolName();
+        configCenterService.updateConfigById(instanceId, poolName, config);
+        notifyConfigChangeById(instanceId, poolName);
+    }
+
+    private void notifyConfigChangeById(String instanceId, String poolName) {
+        try {
+            ThreadPoolConfig config = configCenterService.getConfig(instanceId, poolName);
+            if (config != null) {
+                nettyServer.broadcastConfigChangeById(instanceId, poolName, config);
+            }
+        } catch (Exception e) {
+            log.error("Failed to notify config change by id", e);
+        }
     }
 
     @GetMapping("/list")
-    public List<ThreadPoolConfig> list(@RequestParam(required = false) String applicationName,
-                                      @RequestParam(required = false) String ip,
-                                      @RequestParam(required = false) Integer port) {
+    public PagedResult<ThreadPoolConfig> list(@RequestParam(required = false) String applicationName,
+                                               @RequestParam(required = false) String ip,
+                                               @RequestParam(required = false) Integer port,
+                                               @RequestParam(defaultValue = "1") int page,
+                                               @RequestParam(defaultValue = "10") int size) {
         if (ip != null && port != null) {
-            return configCenterService.getConfigsByInstance(applicationName, ip, port);
+            List<ThreadPoolConfig> configs = configCenterService.getConfigsByInstance(applicationName, ip, port);
+            return new PagedResult<>(configs, configs.size(), page, size);
         }
-        return configCenterService.getAllConfigs(applicationName);
+        return configCenterService.getConfigsPaged(applicationName, page, size);
     }
 
     @PutMapping("/update-batch")

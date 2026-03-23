@@ -15,6 +15,7 @@ public class MessageResponse {
     public String error;
     public String data;
     public String applicationName;
+    public String instanceId;
     public String poolName;
     public List<ThreadPoolConfig> configs;
 }

@@ -3,6 +3,7 @@ package com.mtp.core.netty;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.mtp.core.api.MessageBus;
+import com.mtp.core.api.MessageBusTopic;
 import com.mtp.core.model.Message;
 import io.netty.bootstrap.Bootstrap;
 import io.netty.channel.*;
@@ -51,7 +52,7 @@ public class NettyClient {
     }
 
     private void notifyConfigChange(ConfigChangeEvent event) {
-        messageBus.publish("config-change", new Message<>(event));
+        messageBus.publish(MessageBusTopic.CONFIG_CHANGE, new Message<>(event));
     }
 
     public void start() {

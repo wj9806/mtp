@@ -40,7 +40,7 @@ public class ConfigCenterService {
 
     public void registerConfig(ThreadPoolConfig config) {
         validateConfig(config);
-        String key = buildConfigKey(config.getPoolName(), config.getApplicationName(), config.getIp(), config.getPort());
+        String key = buildConfigKey(config.getInstanceId(), config.getPoolName());
         config.setRegisterTime(System.currentTimeMillis());
         configStore.put(key, config);
 
@@ -54,28 +54,33 @@ public class ConfigCenterService {
         log.info("Registered config: [{}]", key);
     }
 
-    public void unregisterConfig(String poolName, String applicationName, String ip, Integer port) {
-        String key = buildConfigKey(poolName, applicationName, ip, port);
+    public void unregisterConfig(String instanceId, String poolName) {
+        String key = buildConfigKey(instanceId, poolName);
         configStore.remove(key);
-
-        InstanceInfo instance = new InstanceInfo(ip, port);
-        Set<InstanceInfo> instances = applicationInstances.get(applicationName);
-        if (instances != null) {
-            instances.remove(instance);
-            if (instances.isEmpty()) {
-                applicationInstances.remove(applicationName);
-            }
-        }
-
         log.info("Unregistered config: [{}]", key);
     }
 
     public void updateConfig(ThreadPoolConfig config) {
         validateConfig(config);
-        String key = buildConfigKey(config.getPoolName(), config.getApplicationName(), config.getIp(), config.getPort());
+        String key = buildConfigKey(config.getInstanceId(), config.getPoolName());
         if (configStore.containsKey(key)) {
             configStore.put(key, config);
             log.info("Updated config: [{}]", key);
+        }
+    }
+
+    public void updateConfigById(String instanceId, String poolName, ThreadPoolConfig newConfig) {
+        validateConfig(newConfig);
+        String key = buildConfigKey(instanceId, poolName);
+        if (configStore.containsKey(key)) {
+            ThreadPoolConfig existing = configStore.get(key);
+            existing.setCorePoolSize(newConfig.getCorePoolSize());
+            existing.setMaxPoolSize(newConfig.getMaxPoolSize());
+            existing.setQueueCapacity(newConfig.getQueueCapacity());
+            existing.setKeepAliveSeconds(newConfig.getKeepAliveSeconds());
+            existing.setRejectedPolicy(newConfig.getRejectedPolicy());
+            configStore.put(key, existing);
+            log.info("Updated config by id: [{}]", key);
         }
     }
 
@@ -83,8 +88,10 @@ public class ConfigCenterService {
         validateConfig(newConfig);
         List<String> keysToUpdate = configStore.keySet().stream()
             .filter(key -> {
-                String[] parts = key.split(":");
-                return parts.length == 4 && parts[0].equals(applicationName) && parts[3].equals(poolName);
+                ThreadPoolConfig config = configStore.get(key);
+                return config != null
+                    && applicationName.equals(config.getApplicationName())
+                    && poolName.equals(config.getPoolName());
             })
             .collect(Collectors.toList());
 
@@ -128,8 +135,8 @@ public class ConfigCenterService {
         }
     }
 
-    public ThreadPoolConfig getConfig(String poolName, String applicationName, String ip, Integer port) {
-        String key = buildConfigKey(poolName, applicationName, ip, port);
+    public ThreadPoolConfig getConfig(String instanceId, String poolName) {
+        String key = buildConfigKey(instanceId, poolName);
         return configStore.get(key);
     }
 
@@ -140,6 +147,18 @@ public class ConfigCenterService {
         return configStore.values().stream()
             .filter(c -> applicationName.equals(c.getApplicationName()))
             .collect(Collectors.toList());
+    }
+
+    public PagedResult<ThreadPoolConfig> getConfigsPaged(String applicationName, int page, int size) {
+        List<ThreadPoolConfig> allConfigs = getAllConfigs(applicationName);
+        int total = allConfigs.size();
+        int fromIndex = (page - 1) * size;
+        if (fromIndex >= total) {
+            return new PagedResult<>(new ArrayList<>(), total, page, size);
+        }
+        int toIndex = Math.min(fromIndex + size, total);
+        List<ThreadPoolConfig> pagedConfigs = allConfigs.subList(fromIndex, toIndex);
+        return new PagedResult<>(new ArrayList<>(pagedConfigs), total, page, size);
     }
 
     public List<ThreadPoolConfig> getConfigsByInstance(String applicationName, String ip, Integer port) {
@@ -157,7 +176,7 @@ public class ConfigCenterService {
     }
 
     public void reportStatus(ThreadPoolStatus status) {
-        String key = buildStatusKey(status.getPoolName(), status.getApplicationName(), status.getIp(), status.getPort());
+        String key = buildStatusKey(status.getInstanceId(), status.getPoolName());
         statusStore.put(key, status);
         applications.add(status.getApplicationName());
     }
@@ -203,11 +222,11 @@ public class ConfigCenterService {
         return new HashMap<>(statusStore);
     }
 
-    private String buildConfigKey(String poolName, String applicationName, String ip, Integer port) {
-        return applicationName + ":" + ip + ":" + port + ":" + poolName;
+    private String buildConfigKey(String instanceId, String poolName) {
+        return instanceId + ":" + poolName;
     }
 
-    private String buildStatusKey(String poolName, String applicationName, String ip, Integer port) {
-        return applicationName + ":" + ip + ":" + port + ":" + poolName;
+    private String buildStatusKey(String instanceId, String poolName) {
+        return instanceId + ":" + poolName;
     }
 }

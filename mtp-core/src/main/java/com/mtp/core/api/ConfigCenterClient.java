@@ -6,20 +6,17 @@ import com.mtp.core.model.ThreadPoolStatus;
 
 import java.util.List;
 
-/**
- * 配置中心客户端接口，定义与配置中心交互的基本操作
- */
 public interface ConfigCenterClient {
 
     void register(ThreadPoolConfig config);
 
-    void unregister(String poolName, String applicationName, String ip, Integer port);
+    void unregister(String instanceId, String poolName);
 
     void updateConfig(ThreadPoolConfig config);
 
     int updateConfigsByAppAndPoolName(String applicationName, String poolName, ThreadPoolConfig config);
 
-    ThreadPoolConfig getConfig(String poolName, String applicationName, String ip, Integer port);
+    ThreadPoolConfig getConfig(String instanceId, String poolName);
 
     List<ThreadPoolConfig> getAllConfigs(String applicationName);
 

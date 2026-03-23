@@ -19,6 +19,7 @@ import org.springframework.stereotype.Component;
 import javax.annotation.PostConstruct;
 import javax.annotation.PreDestroy;
 import java.nio.charset.StandardCharsets;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -53,6 +54,7 @@ public class NettyServer {
 
     private void registerHandlers() {
         registry.register(new RegisterHandler(objectMapper));
+        registry.register(new UnregisterHandler(objectMapper));
         registry.register(new UpdateConfigHandler(objectMapper));
         registry.register(new UpdateBatchHandler(objectMapper));
         registry.register(new ReportStatusHandler(objectMapper));
@@ -123,6 +125,26 @@ public class NettyServer {
             broadcastConfigChange(applicationName, poolName, configs);
         } catch (Exception e) {
             log.error("Failed to notify config change", e);
+        }
+    }
+
+    public void broadcastConfigChangeById(String instanceId, String poolName, ThreadPoolConfig config) {
+        MessageResponse message = new MessageResponse();
+        message.type = "CONFIG_CHANGE";
+        message.instanceId = instanceId;
+        message.poolName = poolName;
+        message.configs = Collections.singletonList(config);
+
+        try {
+            String json = objectMapper.writeValueAsString(message);
+            for (Channel channel : allChannels) {
+                if (channel.isActive()) {
+                    channel.writeAndFlush(json + "\n");
+                }
+            }
+            log.info("Broadcasted config change by id for {}/{} to {} clients", instanceId, poolName, allChannels.size());
+        } catch (Exception e) {
+            log.error("Failed to broadcast config change by id", e);
         }
     }
 

@@ -14,10 +14,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
-/**
- * 基于Netty的配置中心客户端实现
- * 通过Netty客户端与服务端通信，实现配置的注册、更新、查询等功能
- */
 @Slf4j
 public class NettyConfigCenterClient implements ConfigCenterClient {
 
@@ -31,7 +27,7 @@ public class NettyConfigCenterClient implements ConfigCenterClient {
 
     @Override
     public void register(ThreadPoolConfig config) {
-        String key = buildKey(config.getPoolName(), config.getApplicationName(), config.getIp(), config.getPort());
+        String key = buildKey(config.getInstanceId(), config.getPoolName());
         configCache.put(key, config);
         try {
             nettyClient.sendNotification(MessageType.REGISTER, config);
@@ -41,15 +37,13 @@ public class NettyConfigCenterClient implements ConfigCenterClient {
     }
 
     @Override
-    public void unregister(String poolName, String applicationName, String ip, Integer port) {
-        String key = buildKey(poolName, applicationName, ip, port);
+    public void unregister(String instanceId, String poolName) {
+        String key = buildKey(instanceId, poolName);
         configCache.remove(key);
         try {
             Map<String, Object> params = new ConcurrentHashMap<>();
+            params.put("instanceId", instanceId);
             params.put("poolName", poolName);
-            params.put("applicationName", applicationName);
-            params.put("ip", ip);
-            params.put("port", port);
             nettyClient.sendNotification(MessageType.UNREGISTER, params);
         } catch (Exception e) {
             log.error("Failed to unregister", e);
@@ -58,7 +52,7 @@ public class NettyConfigCenterClient implements ConfigCenterClient {
 
     @Override
     public void updateConfig(ThreadPoolConfig config) {
-        String key = buildKey(config.getPoolName(), config.getApplicationName(), config.getIp(), config.getPort());
+        String key = buildKey(config.getInstanceId(), config.getPoolName());
         configCache.put(key, config);
         try {
             nettyClient.sendNotification(MessageType.UPDATE_CONFIG, config);
@@ -83,17 +77,15 @@ public class NettyConfigCenterClient implements ConfigCenterClient {
     }
 
     @Override
-    public ThreadPoolConfig getConfig(String poolName, String applicationName, String ip, Integer port) {
-        String key = buildKey(poolName, applicationName, ip, port);
+    public ThreadPoolConfig getConfig(String instanceId, String poolName) {
+        String key = buildKey(instanceId, poolName);
         if (configCache.containsKey(key)) {
             return configCache.get(key);
         }
         try {
             Map<String, Object> params = new ConcurrentHashMap<>();
+            params.put("instanceId", instanceId);
             params.put("poolName", poolName);
-            params.put("applicationName", applicationName);
-            params.put("ip", ip);
-            params.put("port", port);
             ThreadPoolConfig config = nettyClient.sendRequest(MessageType.GET_CONFIG, params, new TypeReference<ThreadPoolConfig>() {});
             if (config != null) {
                 configCache.put(key, config);
@@ -166,7 +158,7 @@ public class NettyConfigCenterClient implements ConfigCenterClient {
         return "netty://" + nettyClient;
     }
 
-    private String buildKey(String poolName, String applicationName, String ip, Integer port) {
-        return poolName + ":" + applicationName + ":" + ip + ":" + port;
+    private String buildKey(String instanceId, String poolName) {
+        return instanceId + ":" + poolName;
     }
 }

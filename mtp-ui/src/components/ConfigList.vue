@@ -4,7 +4,7 @@
       <template #header>
         <div class="card-header">
           <span>线程池配置列表</span>
-          <div>
+          <div class="header-controls">
             <el-select v-model="selectedApp" placeholder="选择应用" clearable @change="onAppChange" style="width: 200px">
               <el-option
                 v-for="app in applications"
@@ -26,8 +26,11 @@
         </div>
       </template>
       <div class="batch-tip" v-if="selectedApp && selectedPool">
-        <el-alert type="info" :closable="false">
-          当前为批量编辑模式，修改将同步更新该应用下所有实例的线程池配置
+        <el-alert type="info" :closable="false" show-icon>
+          <div class="batch-tip-content">
+            <span>当前为批量编辑模式，修改将同步更新该应用下所有实例的线程池配置</span>
+            <el-button type="primary" size="small" @click="editBatchConfig" class="batch-edit-btn">编辑</el-button>
+          </div>
         </el-alert>
       </div>
       <el-table :data="configs" style="width: 100%" v-loading="loading">
@@ -40,12 +43,23 @@
         <el-table-column prop="queueCapacity" label="队列容量" width="100" />
         <el-table-column prop="keepAliveSeconds" label="存活时间(秒)" width="120" />
         <el-table-column prop="rejectedPolicy" label="拒绝策略" width="200" />
-        <el-table-column label="操作" width="150">
+        <el-table-column label="操作" width="150" v-if="!isBatchMode">
           <template #default="scope">
             <el-button type="text" @click="editConfig(scope.row)">编辑</el-button>
           </template>
         </el-table-column>
       </el-table>
+      <div class="pagination-wrapper">
+        <el-pagination
+          v-model:current-page="currentPage"
+          v-model:page-size="pageSize"
+          :page-sizes="[10, 20, 50, 100]"
+          :total="total"
+          layout="total, sizes, prev, pager, next, jumper"
+          @size-change="handleSizeChange"
+          @current-change="handlePageChange"
+        />
+      </div>
     </el-card>
 
     <el-dialog v-model="dialogVisible" :title="isBatchMode ? '批量编辑线程池配置' : '编辑线程池配置'" width="500px">
@@ -112,8 +126,11 @@ const selectedApp = ref(props.applicationName || '')
 const selectedPool = ref('')
 const dialogVisible = ref(false)
 const editingConfig = ref({})
-
 const isBatchMode = ref(false)
+
+const currentPage = ref(1)
+const pageSize = ref(10)
+const total = ref(0)
 
 const loadApplications = async () => {
   try {
@@ -127,6 +144,7 @@ const loadApplications = async () => {
 const onAppChange = () => {
   selectedPool.value = ''
   poolNames.value = []
+  currentPage.value = 1
   if (selectedApp.value) {
     loadPoolNames()
   }
@@ -136,40 +154,73 @@ const onAppChange = () => {
 const loadPoolNames = async () => {
   if (!selectedApp.value) return
   try {
-    const data = await getConfigs(selectedApp.value)
-    const pools = new Set(data.map(c => c.poolName))
-    poolNames.value = Array.from(pools)
+    const data = await getConfigs(selectedApp.value, null, null, 1, 1000)
+    if (data && data.content) {
+      const pools = new Set(data.content.map(c => c.poolName))
+      poolNames.value = Array.from(pools)
+    } else if (data && Array.isArray(data)) {
+      const pools = new Set(data.map(c => c.poolName))
+      poolNames.value = Array.from(pools)
+    }
   } catch (error) {
     console.error('Failed to load pool names:', error)
   }
 }
 
 const loadConfigs = async () => {
-  if (!selectedApp.value) {
-    configs.value = []
-    return
-  }
   loading.value = true
   try {
     let data
     if (selectedPool.value) {
       data = await getConfigsByPool(selectedApp.value, selectedPool.value)
       isBatchMode.value = true
+      total.value = Array.isArray(data) ? data.length : 0
+      configs.value = Array.isArray(data) ? data : []
     } else {
-      data = await getConfigs(selectedApp.value)
+      data = await getConfigs(selectedApp.value, null, null, currentPage.value, pageSize.value)
       isBatchMode.value = false
+      if (data && data.content) {
+        total.value = data.totalElements || 0
+        configs.value = data.content
+      } else if (data && Array.isArray(data)) {
+        total.value = data.length
+        configs.value = data
+      } else {
+        total.value = 0
+        configs.value = []
+      }
     }
-    configs.value = data || []
   } catch (error) {
     ElMessage.error('加载配置列表失败')
+    configs.value = []
+    total.value = 0
   } finally {
     loading.value = false
   }
 }
 
+const handlePageChange = (page) => {
+  currentPage.value = page
+  loadConfigs()
+}
+
+const handleSizeChange = (size) => {
+  pageSize.value = size
+  currentPage.value = 1
+  loadConfigs()
+}
+
 const editConfig = (config) => {
   editingConfig.value = { ...config }
   dialogVisible.value = true
+}
+
+const editBatchConfig = () => {
+  if (configs.value.length > 0) {
+    editingConfig.value = { ...configs.value[0] }
+    isBatchMode.value = true
+    dialogVisible.value = true
+  }
 }
 
 const saveConfig = async () => {
@@ -215,35 +266,50 @@ const validateConfig = (config) => {
   return true
 }
 
+onMounted(() => {
+  loadApplications()
+  loadConfigs()
+})
+
 watch(() => props.applicationName, (val) => {
   if (val) {
     selectedApp.value = val
     onAppChange()
   }
 })
-
-onMounted(() => {
-  loadApplications()
-  if (props.applicationName) {
-    onAppChange()
-  }
-})
 </script>
 
 <style scoped>
-.card-header {
+.header-controls {
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  flex-wrap: nowrap;
+  justify-content: flex-end;
 }
 
-.card-header > div {
+.pagination-wrapper {
+  margin-top: 20px;
   display: flex;
-  flex-wrap: nowrap;
+  justify-content: flex-end;
 }
 
 .batch-tip {
   margin-bottom: 10px;
+}
+
+.batch-tip-content {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+}
+
+.batch-edit-btn {
+  flex-shrink: 0;
+}
+
+.batch-tip :deep(.el-alert__content) {
+  display: flex;
+  align-items: center;
+  width: 100%;
 }
 </style>

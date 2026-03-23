@@ -1,14 +1,12 @@
 package com.mtp.core.client;
 
-import com.mtp.core.api.ConfigCenterClient;
-import com.mtp.core.api.DynamicThreadPoolManager;
-import com.mtp.core.api.MessageBus;
-import com.mtp.core.api.MessageListener;
+import com.mtp.core.api.*;
 import com.mtp.core.model.ThreadPoolConfig;
 import com.mtp.core.model.ThreadPoolStatus;
 import com.mtp.core.netty.ConfigChangeEvent;
 import com.mtp.core.netty.NettyClient;
 import com.mtp.core.tp.TpThreadPoolExecutor;
+import com.mtp.core.util.Md5Util;
 import com.mtp.core.util.NetworkUtil;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.util.StringUtils;
@@ -64,7 +62,7 @@ public class DynamicThreadPoolManagerImpl implements DynamicThreadPoolManager {
     }
 
     private void subscribeMessage() {
-        MessageBus.bus.subscribe("config-change", (MessageListener<ConfigChangeEvent>) message -> {
+        MessageBus.bus.subscribe(MessageBusTopic.CONFIG_CHANGE, (MessageListener<ConfigChangeEvent>) message -> {
             ConfigChangeEvent event = message.getContent();
             if (applicationName.equals(event.getApplicationName()) && event.getConfigs() != null) {
                 for (ThreadPoolConfig remoteConfig : event.getConfigs()) {
@@ -94,6 +92,7 @@ public class DynamicThreadPoolManagerImpl implements DynamicThreadPoolManager {
         config.setApplicationName(applicationName);
         config.setIp(ip);
         config.setPort(port);
+        config.setInstanceId(Md5Util.generateInstanceId(applicationName, ip, port));
         config.setRegisterTime(System.currentTimeMillis());
 
         ThreadPoolExecutor executor = createExecutor(config);
@@ -119,15 +118,15 @@ public class DynamicThreadPoolManagerImpl implements DynamicThreadPoolManager {
 
     @Override
     public void unregisterPool(String poolName) {
+        ThreadPoolConfig config = configs.remove(poolName);
         ThreadPoolExecutor executor = executors.remove(poolName);
         if (executor != null) {
             executor.shutdown();
-            configs.remove(poolName);
             registeredPools.remove(poolName);
 
-            if (configCenterClient != null) {
+            if (configCenterClient != null && config != null) {
                 try {
-                    configCenterClient.unregister(poolName, applicationName, ip, port);
+                    configCenterClient.unregister(config.getInstanceId(), poolName);
                 } catch (Exception e) {
                 }
             }
@@ -225,6 +224,7 @@ public class DynamicThreadPoolManagerImpl implements DynamicThreadPoolManager {
         ThreadPoolStatus status = new ThreadPoolStatus();
         status.setPoolName(poolName);
         status.setApplicationName(applicationName);
+        status.setInstanceId(Md5Util.generateInstanceId(applicationName, ip, port));
         status.setIp(ip);
         status.setPort(port);
         status.setCorePoolSize(executor.getCorePoolSize());

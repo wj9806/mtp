@@ -12,6 +12,7 @@ public class ThreadPoolStatus implements Serializable {
 
     private String poolName;
     private String applicationName;
+    private String instanceId;
     private String ip;
     private Integer port;
     private Integer corePoolSize;
