@@ -3,13 +3,13 @@ package com.mtp.core.client;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.mtp.core.api.*;
 import com.mtp.core.model.ClientProperties;
-import com.mtp.core.model.Message;
 import com.mtp.core.model.ThreadPoolConfig;
 import com.mtp.core.model.ThreadPoolStatus;
 import com.mtp.core.netty.ConfigChangeEvent;
 import com.mtp.core.netty.MessageType;
 import com.mtp.core.netty.NettyClient;
 import com.mtp.core.tp.TpThreadPoolExecutor;
+import com.mtp.core.util.ExecutorUtil;
 import com.mtp.core.util.Md5Util;
 import com.mtp.core.util.NetworkUtil;
 import lombok.extern.slf4j.Slf4j;
@@ -92,6 +92,16 @@ public class DynamicThreadPoolManagerImpl implements DynamicThreadPoolManager {
                 this.nettyClient.sendNotification(MessageType.RE_REGISTER, config);
             }
         });
+
+        MessageBus.bus.subscribe(MessageBusTopic.GET_THREAD_POOL_STATUS, (MessageListener<String>) message -> {
+            String poolName = message.getContent();
+            ThreadPoolStatus status = getPoolStatus(poolName);
+            try {
+                configCenterClient.reportStatus(status);
+            } catch (Exception e) {
+                log.error("[{}] Failed to report status: [{}]", poolName, configCenterClient.getConfigCenterUrl());
+            }
+        });
     }
 
     @Override
@@ -131,7 +141,7 @@ public class DynamicThreadPoolManagerImpl implements DynamicThreadPoolManager {
 
     private void pullClientServerConfigs() {
         try {
-            this.clientProperties = nettyClient.sendRequest(MessageType.GET_CLIENT_SERVER_CONFDIG, null, new TypeReference<ClientProperties>() {
+            this.clientProperties = nettyClient.sendRequest(MessageType.GET_CLIENT_SERVER_CONFIG, null, new TypeReference<ClientProperties>() {
             });
         } catch (Exception e) {
             log.error("Failed to pull client server configs", e);
@@ -258,6 +268,7 @@ public class DynamicThreadPoolManagerImpl implements DynamicThreadPoolManager {
         status.setCompletedTaskCount(completedTaskCount);
         //todo 队列大小
         status.setQueueSize(executor.getQueue() != null ? executor.getQueue().size() : 0);
+        status.setQueueCapacity(ExecutorUtil.blockingQueueCapacity(executor));
         status.setUpdateTime(System.currentTimeMillis());
 
         return status;

@@ -22,6 +22,7 @@ public class ThreadPoolStatus implements Serializable {
     private Long taskCount;
     private Long completedTaskCount;
     private Integer queueSize;
+    private Integer queueCapacity;
     private Long updateTime;
 
     public ThreadPoolStatus() {

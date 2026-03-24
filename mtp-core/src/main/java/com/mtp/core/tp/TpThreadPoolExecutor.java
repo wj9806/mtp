@@ -28,6 +28,11 @@ public class TpThreadPoolExecutor extends ThreadPoolExecutor {
         this.completedTaskCounter = new AtomicLong(0);
     }
 
+    protected void beforeExecute(Thread t, Runnable r) {
+        super.beforeExecute(t, r);
+    }
+
+
     @Override
     public void execute(Runnable command) {
         taskCounter.incrementAndGet();

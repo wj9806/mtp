@@ -12,4 +12,8 @@ public interface MessageBusTopic {
      */
     String RE_REGISTER = "re-register";
 
+    /**
+     * 获取线程池当前状态
+     */
+    String GET_THREAD_POOL_STATUS = "get-thread-pool-status";
 }

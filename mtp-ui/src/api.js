@@ -49,4 +49,8 @@ export const getStatuses = (applicationName, ip, port) => {
   return api.get('/status/list', { params })
 }
 
+export const refreshStatus = (instanceId, poolName) => {
+  return api.post(`/status/refresh/${instanceId}/${poolName}`)
+}
+
 export default api

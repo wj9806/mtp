@@ -1,13 +1,15 @@
 package com.mtp.core.netty;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.mtp.core.api.MessageBus;
+import com.mtp.core.api.MessageBusTopic;
+import com.mtp.core.model.Message;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInboundHandlerAdapter;
 import lombok.extern.slf4j.Slf4j;
 
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
-import java.util.function.Consumer;
 
 /**
  * Netty客户端处理器，负责处理与服务端的网络通信
@@ -18,14 +20,11 @@ public class ClientHandler extends ChannelInboundHandlerAdapter {
 
     private final ObjectMapper objectMapper;
     private final Map<String, PendingRequest> pendingRequests;
-    private final Consumer<ConfigChangeEvent> notifyCallback;
 
     public ClientHandler(ObjectMapper objectMapper,
-                         Map<String, PendingRequest> pendingRequests,
-                         Consumer<ConfigChangeEvent> notifyCallback) {
+                         Map<String, PendingRequest> pendingRequests) {
         this.objectMapper = objectMapper;
         this.pendingRequests = pendingRequests;
-        this.notifyCallback = notifyCallback;
     }
 
     @Override
@@ -63,7 +62,9 @@ public class ClientHandler extends ChannelInboundHandlerAdapter {
                     if (response.configs != null) {
                         event.setConfigs(response.configs);
                     }
-                    notifyCallback.accept(event);
+                    MessageBus.bus.publish(MessageBusTopic.CONFIG_CHANGE, new Message<>(event));
+                } else if (MessageType.GET_ALL_STATUSES.getType().equals(response.type)) {
+                    MessageBus.bus.publish(MessageBusTopic.GET_THREAD_POOL_STATUS, new Message<>(response.poolName));
                 }
             }
         } catch (Exception e) {

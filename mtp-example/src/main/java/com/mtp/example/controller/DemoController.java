@@ -26,7 +26,7 @@ public class DemoController {
         if (executor != null) {
             executor.execute(() -> {
                 try {
-                    Thread.sleep(100);
+                    Thread.sleep(getRandomNumber() * 1000L);
                 } catch (InterruptedException e) {
                     Thread.currentThread().interrupt();
                 }
@@ -34,6 +34,10 @@ public class DemoController {
             return "Task submitted to business-pool";
         }
         return "Pool not found";
+    }
+
+    public static int getRandomNumber() {
+        return (int) (Math.random() * 5) + 1;
     }
 
     @GetMapping("/status")

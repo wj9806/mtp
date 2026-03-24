@@ -193,6 +193,25 @@ public class NettyServer {
         log.info("Instance unregistered: {}", instanceId);
     }
 
+    public void requestClientStatus(String instanceId, String poolName) {
+        ClientInstance client = findClientInstanceById(instanceId);
+        if (client != null && client.getChannel().isActive()) {
+            MessageResponse message = new MessageResponse();
+            message.type = MessageType.GET_ALL_STATUSES.getType();
+            message.instanceId = instanceId;
+            message.poolName = poolName;
+            try {
+                String json = objectMapper.writeValueAsString(message);
+                client.getChannel().writeAndFlush(json + "\n");
+                log.debug("Requested status from instance {}", instanceId);
+            } catch (Exception e) {
+                log.error("Failed to request status from instance {}", instanceId, e);
+            }
+        } else {
+            log.warn("Instance {} not found or inactive", instanceId);
+        }
+    }
+
     public void removeClient(Channel channel) {
         allChannels.removeIf(c -> c.getChannel().equals(channel));
         log.info("Client removed");

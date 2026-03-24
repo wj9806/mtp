@@ -51,10 +51,6 @@ public class NettyClient {
         this.port = port;
     }
 
-    private void notifyConfigChange(ConfigChangeEvent event) {
-        messageBus.publish(MessageBusTopic.CONFIG_CHANGE, new Message<>(event));
-    }
-
     public void start() {
         stopped = false;
         group = new NioEventLoopGroup();
@@ -70,7 +66,7 @@ public class NettyClient {
                     pipeline.addLast(new LengthFieldPrepender(4));
                     pipeline.addLast(new StringDecoder(StandardCharsets.UTF_8));
                     pipeline.addLast(new StringEncoder(StandardCharsets.UTF_8));
-                    pipeline.addLast(new ClientHandler(objectMapper, pendingRequests, NettyClient.this::notifyConfigChange));
+                    pipeline.addLast(new ClientHandler(objectMapper, pendingRequests));
                 }
             });
 

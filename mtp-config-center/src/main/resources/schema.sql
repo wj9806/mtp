@@ -28,6 +28,7 @@ CREATE TABLE IF NOT EXISTS thread_pool_status (
     task_count BIGINT COMMENT '总任务数',
     completed_task_count BIGINT COMMENT '已完成任务数',
     queue_size INT COMMENT '队列当前大小',
+    queue_capacity INT COMMENT '队列容量',
     update_time BIGINT COMMENT '最后更新时间戳'
 );
 

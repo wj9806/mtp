@@ -49,6 +49,9 @@ public class ThreadPoolStatusEntity {
     @TableField("queue_size")
     private Integer queueSize;
 
+    @TableField("queue_capacity")
+    private Integer queueCapacity;
+
     @TableField("update_time")
     private Long updateTime;
 }

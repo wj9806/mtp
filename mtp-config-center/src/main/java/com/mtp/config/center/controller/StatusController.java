@@ -1,5 +1,6 @@
 package com.mtp.config.center.controller;
 
+import com.mtp.config.center.netty.NettyServer;
 import com.mtp.config.center.service.ConfigCenterService;
 import com.mtp.core.model.ThreadPoolStatus;
 import org.springframework.web.bind.annotation.*;
@@ -14,9 +15,11 @@ import java.util.List;
 public class StatusController {
 
     private final ConfigCenterService configCenterService;
+    private final NettyServer nettyServer;
 
-    public StatusController(ConfigCenterService configCenterService) {
+    public StatusController(ConfigCenterService configCenterService, NettyServer nettyServer) {
         this.configCenterService = configCenterService;
+        this.nettyServer = nettyServer;
     }
 
     @GetMapping("/list")
@@ -27,5 +30,10 @@ public class StatusController {
             return configCenterService.getStatusesByInstance(applicationName, ip, port);
         }
         return configCenterService.getAllStatuses(applicationName);
+    }
+
+    @PostMapping("/refresh/{instanceId}/{poolName}")
+    public void refreshStatus(@PathVariable String instanceId, @PathVariable String poolName) {
+        nettyServer.requestClientStatus(instanceId, poolName);
     }
 }

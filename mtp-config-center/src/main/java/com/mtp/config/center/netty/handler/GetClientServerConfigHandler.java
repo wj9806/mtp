@@ -9,7 +9,7 @@ import io.netty.channel.ChannelHandlerContext;
 
 import java.io.IOException;
 
-import static com.mtp.core.netty.MessageType.GET_CLIENT_SERVER_CONFDIG;
+import static com.mtp.core.netty.MessageType.GET_CLIENT_SERVER_CONFIG;
 
 public class GetClientServerConfigHandler extends AbstractMessageHandler {
 
@@ -22,7 +22,7 @@ public class GetClientServerConfigHandler extends AbstractMessageHandler {
 
     @Override
     public MessageType getType() {
-        return GET_CLIENT_SERVER_CONFDIG;
+        return GET_CLIENT_SERVER_CONFIG;
     }
 
     @Override

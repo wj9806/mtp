@@ -18,17 +18,25 @@
         </div>
       </template>
       <el-table :data="statuses" style="width: 100%" v-loading="loading">
-        <el-table-column prop="poolName" label="线程池名称" width="250" />
-        <el-table-column prop="applicationName" label="应用名称" width="200" />
+        <el-table-column label="实时刷新" width="80">
+          <template #default="scope">
+            <el-button type="primary" link @click="refreshStatusRow(scope.row)">
+              <span>🗘</span>
+            </el-button>
+          </template>
+        </el-table-column>
+        <el-table-column prop="poolName" label="线程池名称" width="150" />
+        <el-table-column prop="applicationName" label="应用名称" width="150" />
         <el-table-column prop="ip" label="IP地址" width="150" />
         <el-table-column prop="port" label="端口" width="80" />
         <el-table-column prop="corePoolSize" label="核心线程数" width="100" />
         <el-table-column prop="maxPoolSize" label="最大线程数" width="100" />
         <el-table-column prop="activeCount" label="活跃线程数" width="100" />
         <el-table-column prop="poolSize" label="当前线程数" width="100" />
-        <el-table-column prop="taskCount" label="任务总数" width="100" />
+        <el-table-column prop="taskCount" label="任务总数" width="80" />
         <el-table-column prop="completedTaskCount" label="已完成任务" width="110" />
-        <el-table-column prop="queueSize" label="队列大小" width="100" />
+        <el-table-column prop="queueSize" label="队列大小" width="80" />
+        <el-table-column prop="queueCapacity" label="队列容量" width="80" />
         <el-table-column prop="updateTimeTime" label="心跳时间" width="170">
           <template #default="scope">
             {{ formatTime(scope.row.updateTime) }}
@@ -41,7 +49,7 @@
 
 <script setup>
 import { ref, onMounted, onUnmounted } from 'vue'
-import { getApplications, getStatuses } from '../api'
+import {getApplicationList, getStatuses, refreshStatus as refreshStatusApi} from '../api'
 import { ElMessage } from 'element-plus'
 
 const props = defineProps({
@@ -58,7 +66,7 @@ let refreshTimer = null
 
 const loadApplications = async () => {
   try {
-    const data = await getApplications()
+    const data = await getApplicationList()
     applications.value = data || []
   } catch (error) {
     console.error('Failed to load applications:', error)
@@ -91,10 +99,20 @@ const formatTime = (timestamp) => {
   })
 }
 
+const refreshStatusRow = async (status) => {
+  try {
+    await refreshStatusApi(status.instanceId, status.poolName)
+    ElMessage.success('刷新成功')
+    loadStatuses()
+  } catch (error) {
+    ElMessage.error('刷新失败')
+  }
+}
+
 const startAutoRefresh = () => {
   refreshTimer = setInterval(() => {
     loadStatuses()
-  }, 5000)
+  }, 30000)
 }
 
 const stopAutoRefresh = () => {
