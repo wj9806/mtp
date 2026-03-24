@@ -29,9 +29,9 @@
         <el-table-column prop="taskCount" label="任务总数" width="100" />
         <el-table-column prop="completedTaskCount" label="已完成任务" width="110" />
         <el-table-column prop="queueSize" label="队列大小" width="100" />
-        <el-table-column prop="heartbeatTime" label="心跳时间" width="170">
+        <el-table-column prop="updateTimeTime" label="心跳时间" width="170">
           <template #default="scope">
-            {{ formatTime(scope.row.heartbeatTime) }}
+            {{ formatTime(scope.row.updateTime) }}
           </template>
         </el-table-column>
       </el-table>
@@ -79,7 +79,16 @@ const loadStatuses = async () => {
 
 const formatTime = (timestamp) => {
   if (!timestamp) return '-'
-  return new Date(timestamp).toLocaleString()
+  const date = new Date(Number(timestamp))
+  if (isNaN(date.getTime())) return '-'
+  return date.toLocaleString('zh-CN', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit'
+  })
 }
 
 const startAutoRefresh = () => {

@@ -7,4 +7,9 @@ public interface MessageBusTopic {
      */
     String CONFIG_CHANGE = "config-change";
 
+    /**
+     * 重新注册
+     */
+    String RE_REGISTER = "re-register";
+
 }

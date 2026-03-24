@@ -22,7 +22,7 @@ public class ThreadPoolStatus implements Serializable {
     private Long taskCount;
     private Long completedTaskCount;
     private Integer queueSize;
-    private Long heartbeatTime;
+    private Long updateTime;
 
     public ThreadPoolStatus() {
     }
@@ -30,6 +30,6 @@ public class ThreadPoolStatus implements Serializable {
     public ThreadPoolStatus(String poolName, String applicationName) {
         this.poolName = poolName;
         this.applicationName = applicationName;
-        this.heartbeatTime = System.currentTimeMillis();
+        this.updateTime = System.currentTimeMillis();
     }
 }

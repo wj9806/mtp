@@ -11,17 +11,17 @@ import java.io.IOException;
 import java.util.Map;
 
 /**
- * 注册处理器，处理客户端注册线程池配置的请求
+ * 注册处理器，处理客户端重新注册
  */
-public class RegisterHandler extends AbstractMessageHandler {
+public class ReRegisterHandler extends AbstractMessageHandler {
 
-    public RegisterHandler(ObjectMapper objectMapper) {
+    public ReRegisterHandler(ObjectMapper objectMapper) {
         super(objectMapper);
     }
 
     @Override
     public MessageType getType() {
-        return MessageType.REGISTER;
+        return MessageType.RE_REGISTER;
     }
 
     @Override
@@ -32,18 +32,7 @@ public class RegisterHandler extends AbstractMessageHandler {
             context.getNettyServer().registerInstance(ctx.channel(), payload);
         }
 
-        ThreadPoolConfig config = parsePayload(request.payload, ThreadPoolConfig.class);
-        if (config != null) {
-            context.getConfigCenterService().registerConfig(config);
-            context.getConfigCenterService().registerClient(
-                config.getInstanceId(),
-                config.getApplicationName(),
-                config.getIp(),
-                config.getPort()
-            );
-            return buildResponse(request.correlationId, MessageType.REGISTER, true);
-        }
-        return buildErrorResponse(request.correlationId, "Invalid config payload");
+        return buildResponse(request.correlationId, MessageType.REGISTER, true);
     }
 
 }

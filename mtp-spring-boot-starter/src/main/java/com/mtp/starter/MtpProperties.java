@@ -13,7 +13,6 @@ public class MtpProperties {
     private String nettyServerHost = "localhost";
     private int nettyServerPort = 9090;
     private boolean enabled = true;
-    private int statusReportInterval = 30;
 
     public String getApplicationName() {
         return applicationName;
@@ -55,12 +54,5 @@ public class MtpProperties {
         this.enabled = enabled;
     }
 
-    public int getStatusReportInterval() {
-        return statusReportInterval;
-    }
-
-    public void setStatusReportInterval(int statusReportInterval) {
-        this.statusReportInterval = statusReportInterval;
-    }
 
 }

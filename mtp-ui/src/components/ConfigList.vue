@@ -107,7 +107,7 @@
 
 <script setup>
 import { ref, onMounted, watch } from 'vue'
-import { getApplications, getConfigs, updateConfig, updateBatchConfig, getConfigsByPool } from '../api'
+import { getApplicationList, getConfigs, updateConfig, updateBatchConfig, getConfigsByPool } from '../api'
 import { ElMessage } from 'element-plus'
 
 const props = defineProps({
@@ -134,7 +134,7 @@ const total = ref(0)
 
 const loadApplications = async () => {
   try {
-    const data = await getApplications()
+    const data = await getApplicationList()
     applications.value = data || []
   } catch (error) {
     console.error('Failed to load applications:', error)

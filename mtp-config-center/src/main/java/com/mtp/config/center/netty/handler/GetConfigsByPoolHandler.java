@@ -5,7 +5,7 @@ import com.mtp.config.center.netty.MessageContext;
 import com.mtp.core.model.ThreadPoolConfig;
 import com.mtp.core.netty.MessageRequest;
 import com.mtp.core.netty.MessageType;
-import com.mtp.core.netty.MessageResponse;
+import io.netty.channel.ChannelHandlerContext;
 
 import java.io.IOException;
 import java.util.List;
@@ -14,11 +14,10 @@ import java.util.Map;
 /**
  * 获取线程池配置处理器，处理客户端查询线程池配置的请求
  */
-public class GetConfigsByPoolHandler implements MessageHandler {
-    private final ObjectMapper objectMapper;
+public class GetConfigsByPoolHandler extends AbstractMessageHandler {
 
     public GetConfigsByPoolHandler(ObjectMapper objectMapper) {
-        this.objectMapper = objectMapper;
+        super(objectMapper);
     }
 
     @Override
@@ -27,7 +26,7 @@ public class GetConfigsByPoolHandler implements MessageHandler {
     }
 
     @Override
-    public String handle(MessageRequest request, MessageContext context) throws IOException {
+    public String handle(ChannelHandlerContext ctx, MessageRequest request, MessageContext context) throws IOException {
         Map<String, Object> params = toParams(request.payload);
         if (params == null) {
             return buildErrorResponse(request.correlationId, "Invalid payload");
@@ -52,18 +51,4 @@ public class GetConfigsByPoolHandler implements MessageHandler {
         return null;
     }
 
-    private String buildResponse(String correlationId, MessageType type, Object result) throws IOException {
-        MessageResponse response = new MessageResponse();
-        response.correlationId = correlationId;
-        response.type = type.getType();
-        response.data = result != null ? objectMapper.writeValueAsString(result) : null;
-        return objectMapper.writeValueAsString(response);
-    }
-
-    private String buildErrorResponse(String correlationId, String error) throws IOException {
-        MessageResponse response = new MessageResponse();
-        response.correlationId = correlationId;
-        response.error = error;
-        return objectMapper.writeValueAsString(response);
-    }
 }

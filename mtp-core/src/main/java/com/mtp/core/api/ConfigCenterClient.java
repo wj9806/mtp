@@ -1,6 +1,5 @@
 package com.mtp.core.api;
 
-import com.mtp.core.model.ApplicationInfo;
 import com.mtp.core.model.ThreadPoolConfig;
 import com.mtp.core.model.ThreadPoolStatus;
 
@@ -25,8 +24,6 @@ public interface ConfigCenterClient {
     void reportStatus(ThreadPoolStatus status);
 
     List<ThreadPoolStatus> getAllStatuses(String applicationName);
-
-    List<ApplicationInfo> getAllApplications();
 
     String getConfigCenterUrl();
 }

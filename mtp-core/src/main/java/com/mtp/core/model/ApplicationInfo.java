@@ -1,6 +1,9 @@
 package com.mtp.core.model;
 
+import lombok.AllArgsConstructor;
 import lombok.Data;
+import lombok.NoArgsConstructor;
+
 import java.io.Serializable;
 import java.util.HashSet;
 import java.util.Objects;
@@ -29,10 +32,6 @@ public class ApplicationInfo implements Serializable {
         this.instances.add(instance);
     }
 
-    public void removeInstance(String ip, Integer port) {
-        this.instances.remove(new InstanceInfo(ip, port));
-    }
-
     public int getInstanceCount() {
         return instances.size();
     }
@@ -41,31 +40,26 @@ public class ApplicationInfo implements Serializable {
      * 应用实例信息，包含IP地址和端口
      */
     @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
     public static class InstanceInfo implements Serializable {
         private static final long serialVersionUID = 1L;
 
         private String ip;
         private Integer port;
-
-        public InstanceInfo() {
-        }
-
-        public InstanceInfo(String ip, Integer port) {
-            this.ip = ip;
-            this.port = port;
-        }
+        private String status;
 
         @Override
         public boolean equals(Object o) {
             if (this == o) return true;
             if (o == null || getClass() != o.getClass()) return false;
             InstanceInfo that = (InstanceInfo) o;
-            return Objects.equals(ip, that.ip) && Objects.equals(port, that.port);
+            return Objects.equals(ip, that.ip) && Objects.equals(port, that.port) && Objects.equals(status, that.status);
         }
 
         @Override
         public int hashCode() {
-            return Objects.hash(ip, port);
+            return Objects.hash(ip, port, status);
         }
     }
 }

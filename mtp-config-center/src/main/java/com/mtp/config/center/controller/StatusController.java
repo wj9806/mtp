@@ -19,11 +19,6 @@ public class StatusController {
         this.configCenterService = configCenterService;
     }
 
-    @PostMapping("/report")
-    public void report(@RequestBody ThreadPoolStatus status) {
-        configCenterService.reportStatus(status);
-    }
-
     @GetMapping("/list")
     public List<ThreadPoolStatus> list(@RequestParam(required = false) String applicationName,
                                       @RequestParam(required = false) String ip,

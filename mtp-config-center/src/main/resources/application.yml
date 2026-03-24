@@ -1,0 +1,52 @@
+server:
+  port: 9091
+
+spring:
+  application:
+    name: mtp-config-center
+  datasource:
+    # mysql配置
+    # driver-class-name: com.mysql.cj.jdbc.Driver
+    # url: jdbc:mysql://localhost:3306/mtp_config_center?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true
+    # username: root
+    # password: root
+    driver-class-name: org.h2.Driver
+    url: jdbc:h2:tcp://localhost:9092/${mtp.repository.h2-path};DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
+    username: mtp
+    password: mtp
+  h2:
+    console:
+      enabled: true
+      path: /h2-console
+      settings:
+        web-allow-others: false  # 是否允许远程访问
+  sql:
+    init:
+      mode: always
+      #schema-locations: classpath:schema-mysql.sql
+      schema-locations: classpath:schema.sql
+
+mybatis-plus:
+  configuration:
+    log-impl: org.apache.ibatis.logging.nologging.NoLoggingImpl
+  global-config:
+    db-config:
+      id-type: input
+    banner: false
+
+mtp:
+  server:
+    tcp-port: 9090
+  client:
+    # 心跳间隔,单位秒
+    heartbeat-interval: 30
+  deploy:
+    # single 单机部署 cluster 集群
+    type: single
+  repository:
+    type: h2
+    h2-path: ~/.h2/mtp_config_center
+
+logging:
+  level:
+    com.mtp.config.center.mapper: info

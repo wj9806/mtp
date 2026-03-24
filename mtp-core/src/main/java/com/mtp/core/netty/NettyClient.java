@@ -95,6 +95,10 @@ public class NettyClient {
                     if (f.isSuccess()) {
                         channel = f.channel();
                         connected = true;
+                        if (reconnecting.get()) {
+                            //发送重新注册事件
+                            messageBus.publish(MessageBusTopic.RE_REGISTER, new Message<>(null));
+                        }
                         reconnecting.set(false);
                         log.info("Connected to Netty server at {}:{}", host, port);
                         channel.closeFuture().addListener((ChannelFutureListener) cf -> {
@@ -176,6 +180,8 @@ public class NettyClient {
         try {
             String json = objectMapper.writeValueAsString(request);
             channel.writeAndFlush(json + "\n");
+            if (typeReference == null) return null;
+
             String responseJson = pendingRequest.responseFuture.get(REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS);
 
             // 根据 TypeReference 反序列化返回值
@@ -186,21 +192,10 @@ public class NettyClient {
     }
 
     public void sendNotification(MessageType type, Object payload) {
-        if (channel == null || !channel.isActive()) {
-            log.warn("Cannot send notification, not connected");
-            return;
-        }
-
-        MessageRequest request = new MessageRequest();
-        request.correlationId = UUID.randomUUID().toString();
-        request.type = type.getType();
-        request.payload = payload;
-
         try {
-            String json = objectMapper.writeValueAsString(request);
-            channel.writeAndFlush(json + "\n");
+            sendRequest(type, payload, null);
         } catch (Exception e) {
-            log.error("Failed to send notification", e);
+            log.error("Error sending notification {}", type.getType(), e);
         }
     }
 }

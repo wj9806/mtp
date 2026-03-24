@@ -1,9 +1,13 @@
 package com.mtp.core.client;
 
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.mtp.core.api.*;
+import com.mtp.core.model.ClientProperties;
+import com.mtp.core.model.Message;
 import com.mtp.core.model.ThreadPoolConfig;
 import com.mtp.core.model.ThreadPoolStatus;
 import com.mtp.core.netty.ConfigChangeEvent;
+import com.mtp.core.netty.MessageType;
 import com.mtp.core.netty.NettyClient;
 import com.mtp.core.tp.TpThreadPoolExecutor;
 import com.mtp.core.util.Md5Util;
@@ -34,18 +38,17 @@ public class DynamicThreadPoolManagerImpl implements DynamicThreadPoolManager {
     private final Integer port;
     private final ScheduledExecutorService scheduledExecutor;
     private final AtomicBoolean isConfigCenterAvailable;
-    private final int retryIntervalSeconds;
+    private ClientProperties clientProperties;
 
-    public DynamicThreadPoolManagerImpl(ConfigCenterClient configCenterClient, NettyClient nettyClient,
-                                        String applicationName, String ip,
-                                        Integer port, int retryIntervalSeconds) {
+    public DynamicThreadPoolManagerImpl(ConfigCenterClient configCenterClient, 
+                                        NettyClient nettyClient, String applicationName, 
+                                        String ip, Integer port) {
         this.configCenterClient = configCenterClient;
         this.nettyClient = nettyClient;
         this.applicationName = applicationName;
         this.ip = ip != null ? ip : NetworkUtil.getLocalIp();
         this.port = port;
         this.instanceId = Md5Util.generateInstanceId(applicationName, ip, port);
-        this.retryIntervalSeconds = retryIntervalSeconds;
         this.executors = new ConcurrentHashMap<>();
         this.configs = new ConcurrentHashMap<>();
         this.registeredPools = ConcurrentHashMap.newKeySet();
@@ -57,11 +60,10 @@ public class DynamicThreadPoolManagerImpl implements DynamicThreadPoolManager {
             return t;
         });
 
-        if (nettyClient != null) {
-            subscribeMessage();
-            nettyClient.start();
-        }
-
+        subscribeMessage();
+        nettyClient.start();
+        nettyClient.awaitConnect();
+        pullClientServerConfigs();
         startRetryTask();
     }
 
@@ -80,6 +82,14 @@ public class DynamicThreadPoolManagerImpl implements DynamicThreadPoolManager {
                         }
                     }
                 }
+            }
+        });
+
+        MessageBus.bus.subscribe(MessageBusTopic.RE_REGISTER, m -> {
+            Optional<ThreadPoolConfig> op = configs.values().stream().findFirst();
+            if (op.isPresent()) {
+                ThreadPoolConfig config = op.get();
+                this.nettyClient.sendNotification(MessageType.RE_REGISTER, config);
             }
         });
     }
@@ -110,13 +120,21 @@ public class DynamicThreadPoolManagerImpl implements DynamicThreadPoolManager {
 
     private void doRegister(String poolName, ThreadPoolConfig config) {
         try {
-            nettyClient.awaitConnect();
             configCenterClient.register(config);
             registeredPools.add(poolName);
             isConfigCenterAvailable.set(true);
         } catch (Exception e) {
             registeredPools.remove(poolName);
             isConfigCenterAvailable.set(false);
+        }
+    }
+
+    private void pullClientServerConfigs() {
+        try {
+            this.clientProperties = nettyClient.sendRequest(MessageType.GET_CLIENT_SERVER_CONFDIG, null, new TypeReference<ClientProperties>() {
+            });
+        } catch (Exception e) {
+            log.error("Failed to pull client server configs", e);
         }
     }
 
@@ -238,26 +256,18 @@ public class DynamicThreadPoolManagerImpl implements DynamicThreadPoolManager {
         status.setPoolSize(executor.getPoolSize());
         status.setTaskCount(taskCount);
         status.setCompletedTaskCount(completedTaskCount);
+        //todo 队列大小
         status.setQueueSize(executor.getQueue() != null ? executor.getQueue().size() : 0);
-        status.setHeartbeatTime(System.currentTimeMillis());
+        status.setUpdateTime(System.currentTimeMillis());
 
         return status;
-    }
-
-    public void startStatusReporter(int intervalSeconds) {
-        scheduledExecutor.scheduleAtFixedRate(
-            this::reportStatus,
-            intervalSeconds,
-            intervalSeconds,
-            TimeUnit.SECONDS
-        );
     }
 
     private void startRetryTask() {
         scheduledExecutor.scheduleAtFixedRate(
             this::retryRegistrationAndReport,
-            retryIntervalSeconds,
-            retryIntervalSeconds,
+            clientProperties.getHeartbeatInterval(),
+            clientProperties.getHeartbeatInterval(),
             TimeUnit.SECONDS
         );
     }

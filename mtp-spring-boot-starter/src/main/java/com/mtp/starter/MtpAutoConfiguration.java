@@ -44,8 +44,7 @@ public class MtpAutoConfiguration {
             nettyClient,
             properties.getApplicationName(),
             NetworkUtil.getLocalIp(),
-            serverProperties.getPort(),
-            properties.getStatusReportInterval()
+            serverProperties.getPort()
         );
     }
 }

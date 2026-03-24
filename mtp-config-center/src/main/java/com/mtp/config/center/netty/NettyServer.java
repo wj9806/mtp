@@ -1,6 +1,7 @@
 package com.mtp.config.center.netty;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.mtp.config.center.config.MtpProperties;
 import com.mtp.config.center.model.ClientInstance;
 import com.mtp.config.center.netty.handler.*;
 import com.mtp.config.center.service.ConfigCenterService;
@@ -17,6 +18,7 @@ import io.netty.handler.codec.string.StringDecoder;
 import io.netty.handler.codec.string.StringEncoder;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
+import org.springframework.util.StringUtils;
 
 import javax.annotation.PostConstruct;
 import javax.annotation.PreDestroy;
@@ -37,6 +39,7 @@ public class NettyServer {
 
     private static final int PORT = 9090;
 
+    private final MtpProperties mtpProperties;
     private final ConfigCenterService configCenterService;
     private final ObjectMapper objectMapper;
     private final EventLoopGroup bossGroup = new NioEventLoopGroup(1);
@@ -45,27 +48,31 @@ public class NettyServer {
     private final MessageHandlerRegistry registry;
     private final MessageContext messageContext;
 
-    public NettyServer(ConfigCenterService configCenterService) {
+    public NettyServer(ConfigCenterService configCenterService, MtpProperties mtpProperties) {
         this.configCenterService = configCenterService;
         this.objectMapper = new ObjectMapper();
         this.registry = new MessageHandlerRegistry(this.objectMapper);
         this.messageContext = new MessageContext(configCenterService, this);
-        registerHandlers();
+        this.mtpProperties = mtpProperties;
+        this.registerHandlers();
     }
 
     private void registerHandlers() {
-        registry.register(new RegisterHandler(objectMapper));
-        registry.register(new UnregisterHandler(objectMapper));
-        registry.register(new UpdateConfigHandler(objectMapper));
-        registry.register(new UpdateBatchHandler(objectMapper));
-        registry.register(new ReportStatusHandler(objectMapper));
-        registry.register(new GetConfigsByPoolHandler(objectMapper));
-        registry.register(new GetAllApplicationsHandler(objectMapper));
+        registry.register(new RegisterHandler(objectMapper))
+            .register(new ReRegisterHandler(objectMapper))
+            .register(new UnregisterHandler(objectMapper))
+            .register(new UpdateConfigHandler(objectMapper))
+            .register(new UpdateBatchHandler(objectMapper))
+            .register(new ReportStatusHandler(objectMapper))
+            .register(new GetConfigsByPoolHandler(objectMapper))
+            .register(new GetClientServerConfigHandler(objectMapper, mtpProperties));
     }
 
     @PostConstruct
     public void start() {
         new Thread(() -> {
+            String tcpPort = mtpProperties.getServer().getTcpPort();
+            int port = StringUtils.hasLength(tcpPort) ? Integer.parseInt(tcpPort) : PORT;
             try {
                 ServerBootstrap bootstrap = new ServerBootstrap();
                 bootstrap.group(bossGroup, workerGroup)
@@ -83,12 +90,11 @@ public class NettyServer {
                             pipeline.addLast(new ServerHandler(registry, messageContext, objectMapper));
                         }
                     });
-
-                ChannelFuture future = bootstrap.bind(PORT).sync();
-                log.info("Netty server started on port {}", PORT);
+                ChannelFuture future = bootstrap.bind(port).sync();
+                log.info("mtp server started on port {}", port);
                 future.channel().closeFuture().sync();
             } catch (Exception e) {
-                log.error("Failed to start Netty server", e);
+                log.error("Failed to start mtp server on port {}", port, e);
             }
         }, "mtp-server").start();
     }
@@ -97,7 +103,7 @@ public class NettyServer {
     public void stop() {
         bossGroup.shutdownGracefully();
         workerGroup.shutdownGracefully();
-        log.info("Netty server stopped");
+        log.info("mtp server stopped");
     }
 
     public void broadcastConfigChange(String applicationName, String poolName, List<ThreadPoolConfig> configs) {

@@ -1,6 +1,7 @@
 package com.mtp.config.center.controller;
 
 import com.mtp.config.center.service.ConfigCenterService;
+import com.mtp.config.center.service.PagedResult;
 import com.mtp.core.model.ApplicationInfo;
 import org.springframework.web.bind.annotation.*;
 
@@ -20,7 +21,15 @@ public class ApplicationController {
     }
 
     @GetMapping("/applications")
-    public List<ApplicationInfo> getAllApplications() {
-        return configCenterService.getAllApplicationsWithInstances();
+    public PagedResult<ApplicationInfo> getApplications(
+            @RequestParam(required = false) String applicationName,
+            @RequestParam(defaultValue = "1") int page,
+            @RequestParam(defaultValue = "4") int size) {
+        return configCenterService.getApplicationsFromRegistryPaged(applicationName, page, size);
+    }
+
+    @GetMapping("/applicationList")
+    public List<ApplicationInfo> getApplicationList() {
+        return configCenterService.getAllApplications();
     }
 }

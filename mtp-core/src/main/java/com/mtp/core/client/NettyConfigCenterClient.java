@@ -2,7 +2,6 @@ package com.mtp.core.client;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.mtp.core.api.ConfigCenterClient;
-import com.mtp.core.model.ApplicationInfo;
 import com.mtp.core.model.ThreadPoolConfig;
 import com.mtp.core.model.ThreadPoolStatus;
 import com.mtp.core.netty.MessageType;
@@ -139,16 +138,6 @@ public class NettyConfigCenterClient implements ConfigCenterClient {
             return nettyClient.sendRequest(MessageType.GET_ALL_STATUSES, params, new TypeReference<List<ThreadPoolStatus>>() {});
         } catch (Exception e) {
             log.error("Failed to get all statuses", e);
-            return Collections.emptyList();
-        }
-    }
-
-    @Override
-    public List<ApplicationInfo> getAllApplications() {
-        try {
-            return nettyClient.sendRequest(MessageType.GET_ALL_APPLICATIONS, null, new TypeReference<List<ApplicationInfo>>() {});
-        } catch (Exception e) {
-            log.error("Failed to get all applications", e);
             return Collections.emptyList();
         }
     }

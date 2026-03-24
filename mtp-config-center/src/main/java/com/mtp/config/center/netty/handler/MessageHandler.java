@@ -3,6 +3,7 @@ package com.mtp.config.center.netty.handler;
 import com.mtp.config.center.netty.MessageContext;
 import com.mtp.core.netty.MessageRequest;
 import com.mtp.core.netty.MessageType;
+import io.netty.channel.ChannelHandlerContext;
 
 import java.io.IOException;
 
@@ -11,5 +12,5 @@ import java.io.IOException;
  */
 public interface MessageHandler {
     MessageType getType();
-    String handle(MessageRequest request, MessageContext context) throws IOException;
+    String handle(ChannelHandlerContext ctx, MessageRequest request, MessageContext context) throws IOException;
 }

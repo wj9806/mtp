@@ -1,110 +1,82 @@
 package com.mtp.config.center.service;
 
+import com.mtp.config.center.config.MtpProperties;
+import com.mtp.config.center.model.ClientStatus;
+import com.mtp.config.center.repository.ConfigCenterRepository;
 import com.mtp.core.model.ApplicationInfo;
-import com.mtp.core.model.ApplicationInfo.InstanceInfo;
 import com.mtp.core.model.ThreadPoolConfig;
 import com.mtp.core.model.ThreadPoolStatus;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.DisposableBean;
+import org.springframework.beans.factory.InitializingBean;
 import org.springframework.stereotype.Service;
 
-import javax.annotation.PostConstruct;
 import java.util.*;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentSkipListSet;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
-/**
- * 配置中心服务，负责管理线程池配置和状态的存储与查询
- */
 @Slf4j
 @Service
-public class ConfigCenterService {
+public class ConfigCenterService implements InitializingBean, DisposableBean {
 
-    private final Map<String, ThreadPoolConfig> configStore;
-    private final Map<String, ThreadPoolStatus> statusStore;
-    private final Map<String, Set<InstanceInfo>> applicationInstances;
-    private final Set<String> applications;
+    private final ConfigCenterRepository repository;
+    private ScheduledExecutorService mtpServerScheduler;
+    private final MtpProperties mtpProperties;
 
-    public ConfigCenterService() {
-        this.configStore = new ConcurrentHashMap<>();
-        this.statusStore = new ConcurrentHashMap<>();
-        this.applicationInstances = new ConcurrentHashMap<>();
-        this.applications = new ConcurrentSkipListSet<>();
-    }
-
-    @PostConstruct
-    public void init() {
+    public ConfigCenterService(ConfigCenterRepository repository, MtpProperties mtpProperties) {
+        this.repository = repository;
+        this.mtpProperties = mtpProperties;
     }
 
     public void registerConfig(ThreadPoolConfig config) {
         validateConfig(config);
-        String key = buildConfigKey(config.getInstanceId(), config.getPoolName());
         config.setRegisterTime(System.currentTimeMillis());
-        configStore.put(key, config);
-
-        String appKey = config.getApplicationName();
-        applications.add(appKey);
-
-        InstanceInfo instance = new InstanceInfo(config.getIp(), config.getPort());
-        Set<InstanceInfo> instances = applicationInstances.computeIfAbsent(appKey, k -> ConcurrentHashMap.newKeySet());
-        instances.add(instance);
-
-        log.info("Registered config: [{}]", key);
+        repository.saveConfig(config);
+        log.info("Registered config: [{}:{}]", config.getInstanceId(), config.getPoolName());
     }
 
     public void unregisterConfig(String instanceId, String poolName) {
-        String key = buildConfigKey(instanceId, poolName);
-        configStore.remove(key);
-        statusStore.remove(buildStatusKey(instanceId, poolName));
-        log.info("Unregistered config: [{}]", key);
+        repository.deleteConfig(instanceId, poolName);
+        repository.deleteStatus(instanceId, poolName);
+        log.info("Unregistered config: [{}:{}]", instanceId, poolName);
     }
 
     public void updateConfig(ThreadPoolConfig config) {
         validateConfig(config);
-        String key = buildConfigKey(config.getInstanceId(), config.getPoolName());
-        if (configStore.containsKey(key)) {
-            configStore.put(key, config);
-            log.info("Updated config: [{}]", key);
-        }
+        repository.updateConfig(config);
+        log.info("Updated config: [{}:{}]", config.getInstanceId(), config.getPoolName());
     }
 
     public void updateConfigById(String instanceId, String poolName, ThreadPoolConfig newConfig) {
         validateConfig(newConfig);
-        String key = buildConfigKey(instanceId, poolName);
-        if (configStore.containsKey(key)) {
-            ThreadPoolConfig existing = configStore.get(key);
+        ThreadPoolConfig existing = repository.findConfigById(instanceId, poolName);
+        if (existing != null) {
             existing.setCorePoolSize(newConfig.getCorePoolSize());
             existing.setMaxPoolSize(newConfig.getMaxPoolSize());
             existing.setQueueCapacity(newConfig.getQueueCapacity());
             existing.setKeepAliveSeconds(newConfig.getKeepAliveSeconds());
             existing.setRejectedPolicy(newConfig.getRejectedPolicy());
-            configStore.put(key, existing);
-            log.info("Updated config by id: [{}]", key);
+            repository.updateConfig(existing);
+            log.info("Updated config by id: [{}:{}]", instanceId, poolName);
         }
     }
 
     public int updateConfigsByAppAndPoolName(String applicationName, String poolName, ThreadPoolConfig newConfig) {
         validateConfig(newConfig);
-        List<String> keysToUpdate = configStore.keySet().stream()
-            .filter(key -> {
-                ThreadPoolConfig config = configStore.get(key);
-                return config != null
-                    && applicationName.equals(config.getApplicationName())
-                    && poolName.equals(config.getPoolName());
-            })
-            .collect(Collectors.toList());
+        List<ThreadPoolConfig> configs = repository.findConfigsByPoolName(applicationName, poolName);
 
-        for (String key : keysToUpdate) {
-            ThreadPoolConfig existing = configStore.get(key);
-            existing.setCorePoolSize(newConfig.getCorePoolSize());
-            existing.setMaxPoolSize(newConfig.getMaxPoolSize());
-            existing.setQueueCapacity(newConfig.getQueueCapacity());
-            existing.setKeepAliveSeconds(newConfig.getKeepAliveSeconds());
-            existing.setRejectedPolicy(newConfig.getRejectedPolicy());
-            configStore.put(key, existing);
-            log.info("Updated config for all instances: [{}]", key);
+        for (ThreadPoolConfig config : configs) {
+            config.setCorePoolSize(newConfig.getCorePoolSize());
+            config.setMaxPoolSize(newConfig.getMaxPoolSize());
+            config.setQueueCapacity(newConfig.getQueueCapacity());
+            config.setKeepAliveSeconds(newConfig.getKeepAliveSeconds());
+            config.setRejectedPolicy(newConfig.getRejectedPolicy());
+            repository.updateConfig(config);
+            log.info("Updated config for all instances: [{}:{}]", config.getInstanceId(), poolName);
         }
-        return keysToUpdate.size();
+        return configs.size();
     }
 
     private void validateConfig(ThreadPoolConfig config) {
@@ -135,102 +107,131 @@ public class ConfigCenterService {
     }
 
     public ThreadPoolConfig getConfig(String instanceId, String poolName) {
-        String key = buildConfigKey(instanceId, poolName);
-        return configStore.get(key);
+        return repository.findConfigById(instanceId, poolName);
     }
 
     public List<ThreadPoolConfig> getAllConfigs(String applicationName) {
-        if (applicationName == null || applicationName.isEmpty()) {
-            return new ArrayList<>(configStore.values());
-        }
-        return configStore.values().stream()
-            .filter(c -> applicationName.equals(c.getApplicationName()))
-            .collect(Collectors.toList());
+        return repository.findConfigsByApplication(applicationName);
     }
 
     public PagedResult<ThreadPoolConfig> getConfigsPaged(String applicationName, int page, int size) {
-        List<ThreadPoolConfig> allConfigs = getAllConfigs(applicationName);
-        int total = allConfigs.size();
-        int fromIndex = (page - 1) * size;
-        if (fromIndex >= total) {
-            return new PagedResult<>(new ArrayList<>(), total, page, size);
-        }
-        int toIndex = Math.min(fromIndex + size, total);
-        List<ThreadPoolConfig> pagedConfigs = allConfigs.subList(fromIndex, toIndex);
-        return new PagedResult<>(new ArrayList<>(pagedConfigs), total, page, size);
+        List<ThreadPoolConfig> configs = repository.findConfigsPaged(applicationName, page, size);
+        int total = repository.countConfigs(applicationName);
+        return new PagedResult<>(configs, total, page, size);
     }
 
     public List<ThreadPoolConfig> getConfigsByInstance(String applicationName, String ip, Integer port) {
-        return configStore.values().stream()
-            .filter(c -> applicationName.equals(c.getApplicationName()))
-            .filter(c -> Objects.equals(c.getIp(), ip) && Objects.equals(c.getPort(), port))
+        return repository.findConfigsByApplication(applicationName).stream()
+            .filter(c -> c.getIp().equals(ip) && c.getPort().equals(port))
             .collect(Collectors.toList());
     }
 
     public List<ThreadPoolConfig> getConfigsByInstanceId(String instanceId, String poolName) {
-        String key = buildConfigKey(instanceId, poolName);
-        return Collections.singletonList(configStore.get(key));
+        ThreadPoolConfig config = repository.findConfigById(instanceId, poolName);
+        return config == null ? new ArrayList<>() : Collections.singletonList(config);
     }
 
     public List<ThreadPoolConfig> getConfigsByPoolName(String applicationName, String poolName) {
-        return configStore.values().stream()
-            .filter(c -> applicationName.equals(c.getApplicationName()))
-            .filter(c -> poolName.equals(c.getPoolName()))
-            .collect(Collectors.toList());
+        return repository.findConfigsByPoolName(applicationName, poolName);
     }
 
     public void reportStatus(ThreadPoolStatus status) {
-        String key = buildStatusKey(status.getInstanceId(), status.getPoolName());
-        statusStore.put(key, status);
-        applications.add(status.getApplicationName());
+        repository.saveStatus(status);
     }
 
     public List<ThreadPoolStatus> getAllStatuses(String applicationName) {
-        if (applicationName == null || applicationName.isEmpty()) {
-            return new ArrayList<>(statusStore.values());
-        }
-        return statusStore.values().stream()
-            .filter(s -> applicationName.equals(s.getApplicationName()))
-            .collect(Collectors.toList());
+        return repository.findStatusesByApplication(applicationName);
     }
 
     public List<ThreadPoolStatus> getStatusesByInstance(String applicationName, String ip, Integer port) {
-        return statusStore.values().stream()
-            .filter(s -> applicationName.equals(s.getApplicationName()))
-            .filter(s -> Objects.equals(s.getIp(), ip) && Objects.equals(s.getPort(), port))
+        return repository.findStatusesByApplication(applicationName).stream()
+            .filter(s -> s.getIp().equals(ip) && s.getPort().equals(port))
             .collect(Collectors.toList());
     }
 
-    public List<ApplicationInfo> getAllApplicationsWithInstances() {
-        List<ApplicationInfo> result = new ArrayList<>();
-        for (String appName : applications) {
-            ApplicationInfo appInfo = new ApplicationInfo(appName);
-            Set<InstanceInfo> instances = applicationInstances.get(appName);
-            if (instances != null) {
-                appInfo.setInstances(new HashSet<>(instances));
-            }
-            result.add(appInfo);
-        }
-        return result;
-    }
-
-    public List<String> getAllApplications() {
-        return new ArrayList<>(applications);
+    public List<ApplicationInfo> getAllApplications() {
+        return repository.findAllApplications().stream()
+                .map(ApplicationInfo::new).collect(Collectors.toList());
     }
 
     public Map<String, ThreadPoolConfig> getAllConfigsMap() {
-        return new HashMap<>(configStore);
+        return repository.findAllConfigs().stream()
+            .collect(Collectors.toMap(
+                c -> c.getInstanceId() + ":" + c.getPoolName(),
+                c -> c
+            ));
     }
 
-    public Map<String, ThreadPoolStatus> getAllStatusesMap() {
-        return new HashMap<>(statusStore);
+    public void registerClient(String instanceId, String applicationName, String ip, Integer port) {
+        repository.registerClient(instanceId, applicationName, ip, port);
     }
 
-    private String buildConfigKey(String instanceId, String poolName) {
-        return instanceId + ":" + poolName;
+    public void updateClientReportTime(String instanceId) {
+        repository.updateClientReportTime(instanceId);
     }
 
-    private String buildStatusKey(String instanceId, String poolName) {
-        return buildConfigKey(instanceId, poolName);
+    public void updateClientStatus(String instanceId, String status) {
+        repository.updateClientStatus(instanceId, status);
+    }
+
+    public List<String> getAllClientInstanceIds() {
+        return repository.findAllClientInstanceIds();
+    }
+
+    public String getClientStatus(String instanceId) {
+        return repository.findClientStatus(instanceId);
+    }
+
+    public Long getClientReportTime(String instanceId) {
+        return repository.findClientReportTime(instanceId);
+    }
+
+    public PagedResult<ApplicationInfo> getApplicationsFromRegistryPaged(String applicationName, int page, int size) {
+        List<ApplicationInfo> content = repository.findApplicationsFromRegistryPaged(applicationName, page, size);
+        int total = repository.countApplicationsFromRegistry(applicationName);
+
+        content.get(0).addInstance(new ApplicationInfo.InstanceInfo("127.0.0.1", 8080, "ONLINE"));
+        content.get(0).addInstance(new ApplicationInfo.InstanceInfo("127.0.0.1", 8081, "ONLINE"));
+        content.get(0).addInstance(new ApplicationInfo.InstanceInfo("127.0.0.1", 8082, "ONLINE"));
+        content.get(0).addInstance(new ApplicationInfo.InstanceInfo("127.0.0.1", 8083, "ONLINE"));
+        content.get(0).addInstance(new ApplicationInfo.InstanceInfo("127.0.0.1", 8084, "ONLINE"));
+        return new PagedResult<>(content, total, page, size);
+    }
+
+    @Override
+    public void destroy() throws Exception {
+        this.mtpServerScheduler.shutdown();
+    }
+
+    @Override
+    public void afterPropertiesSet() throws Exception {
+        this.mtpServerScheduler = Executors.newSingleThreadScheduledExecutor(r -> {
+            Thread t = new Thread(r);
+            t.setName("mtp-server-scheduler");
+            return t;
+        });
+        int interval = mtpProperties.getClient().getHeartbeatInterval();
+        this.mtpServerScheduler.scheduleAtFixedRate(()-> {
+            try {
+                List<String> instanceIds = getAllClientInstanceIds();
+                long heartbeatInterval = interval * 1000L;
+                long threshold = 2 * heartbeatInterval;
+                long currentTime = System.currentTimeMillis();
+
+                for (String instanceId : instanceIds) {
+                    String status = getClientStatus(instanceId);
+                    if (ClientStatus.ONLINE.toString().equals(status)) {
+                        Long reportTime = getClientReportTime(instanceId);
+                        if (reportTime != null && (currentTime - reportTime) > threshold) {
+                            updateClientStatus(instanceId, ClientStatus.OFFLINE.toString());
+                            log.info("Client {} marked as OFFLINE (report time: {}, current time: {}, threshold: {})",
+                                    instanceId, reportTime, currentTime, threshold);
+                        }
+                    }
+                }
+            } catch (Exception e) {
+                log.error("Error updating client status", e);
+            }
+        }, interval, interval, TimeUnit.SECONDS);
     }
 }

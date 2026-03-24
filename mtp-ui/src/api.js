@@ -13,7 +13,15 @@ api.interceptors.response.use(
   }
 )
 
-export const getApplications = () => api.get('/applications')
+export const getApplicationList = () => {
+  return api.get('/applicationList')
+}
+
+export const getApplications = (applicationName, page = 1, size = 4) => {
+  const params = { page, size }
+  if (applicationName) params.applicationName = applicationName
+  return api.get('/applications', { params })
+}
 
 export const getConfigs = (applicationName, ip, port, page = 1, size = 10) => {
   const params = { page, size }

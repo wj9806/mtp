@@ -5,6 +5,7 @@ import com.mtp.config.center.netty.handler.MessageHandler;
 import com.mtp.core.netty.MessageRequest;
 import com.mtp.core.netty.MessageType;
 import com.mtp.core.netty.MessageResponse;
+import io.netty.channel.ChannelHandlerContext;
 
 import java.io.IOException;
 import java.util.HashMap;
@@ -26,12 +27,12 @@ public class MessageHandlerRegistry {
         return this;
     }
 
-    public String route(MessageRequest request, MessageContext context) throws IOException {
+    public String route(ChannelHandlerContext ctx, MessageRequest request, MessageContext context) throws IOException {
         MessageType type = MessageType.fromString(request.type);
         if (type != null) {
             MessageHandler handler = handlers.get(type);
             if (handler != null) {
-                return handler.handle(request, context);
+                return handler.handle(ctx, request, context);
             }
         }
         return buildErrorResponse(request.correlationId, "Unknown request type: " + request.type);
