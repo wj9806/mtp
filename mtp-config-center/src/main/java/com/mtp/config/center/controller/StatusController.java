@@ -1,5 +1,6 @@
 package com.mtp.config.center.controller;
 
+import com.mtp.config.center.model.R;
 import com.mtp.config.center.netty.NettyServer;
 import com.mtp.config.center.service.ConfigCenterService;
 import com.mtp.core.model.ThreadPoolStatus;
@@ -23,17 +24,21 @@ public class StatusController {
     }
 
     @GetMapping("/list")
-    public List<ThreadPoolStatus> list(@RequestParam(required = false) String applicationName,
-                                      @RequestParam(required = false) String ip,
-                                      @RequestParam(required = false) Integer port) {
+    public R list(@RequestParam(required = false) String applicationName,
+                  @RequestParam(required = false) String ip,
+                  @RequestParam(required = false) Integer port) {
+        List<ThreadPoolStatus> statuses;
         if (ip != null && port != null) {
-            return configCenterService.getStatusesByInstance(applicationName, ip, port);
+            statuses = configCenterService.getStatusesByInstance(applicationName, ip, port);
+        } else {
+            statuses = configCenterService.getAllStatuses(applicationName);
         }
-        return configCenterService.getAllStatuses(applicationName);
+        return R.ok(statuses);
     }
 
     @PostMapping("/refresh/{instanceId}/{poolName}")
-    public void refreshStatus(@PathVariable String instanceId, @PathVariable String poolName) {
+    public R refreshStatus(@PathVariable String instanceId, @PathVariable String poolName) {
         nettyServer.requestClientStatus(instanceId, poolName);
+        return R.ok();
     }
 }

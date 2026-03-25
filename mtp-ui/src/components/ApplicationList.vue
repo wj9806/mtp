@@ -140,7 +140,7 @@ const loadApplications = async () => {
   loading.value = true
   try {
     const data = await getApplications(searchName.value, currentPage.value, pageSize)
-    applications.value = data.content || []
+    applications.value = data.records || []
     total.value = data.total || 0
   } catch (error) {
     ElMessage.error('加载应用列表失败')

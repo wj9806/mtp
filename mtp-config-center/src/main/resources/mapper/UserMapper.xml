@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.mtp.config.center.mapper.MtpUserMapper">
+
+    <resultMap id="UserWithRolesMap" type="com.mtp.config.center.model.vo.UserWithRoles">
+        <id column="id" property="id"/>
+        <result column="username" property="username"/>
+        <result column="nickname" property="nickname"/>
+        <result column="email" property="email"/>
+        <result column="phone" property="phone"/>
+        <result column="status" property="status"/>
+        <result column="create_time" property="createTime"/>
+        <result column="role_ids" property="roleIds"/>
+        <result column="role_names" property="roles"/>
+    </resultMap>
+
+    <select id="selectUserListWithRoles" resultMap="UserWithRolesMap">
+        SELECT u.id, u.username, u.nickname, u.email, u.phone, u.status, u.create_time,
+               GROUP_CONCAT(ur.role_id) as role_ids,
+               GROUP_CONCAT(r.role_name) as role_names
+        FROM mtp_user u
+        LEFT JOIN mtp_user_role ur ON u.id = ur.user_id
+        LEFT JOIN mtp_role r ON ur.role_id = r.id
+        <where>
+            <if test="username != null and username != ''">
+                AND u.username LIKE CONCAT('%', #{username}, '%')
+            </if>
+        </where>
+        GROUP BY u.id, u.username, u.nickname, u.email, u.phone, u.status, u.create_time
+        ORDER BY u.create_time DESC
+        LIMIT #{offset}, #{limit}
+    </select>
+
+    <select id="countUserListWithRoles" resultType="long">
+        SELECT COUNT(*) FROM (
+            SELECT u.id
+            FROM mtp_user u
+            LEFT JOIN mtp_user_role ur ON u.id = ur.user_id
+            LEFT JOIN mtp_role r ON ur.role_id = r.id
+            <where>
+                <if test="username != null and username != ''">
+                    AND u.username LIKE CONCAT('%', #{username}, '%')
+                </if>
+            </where>
+            GROUP BY u.id, u.username, u.nickname, u.email, u.phone, u.status, u.create_time
+        ) t
+    </select>
+
+</mapper>

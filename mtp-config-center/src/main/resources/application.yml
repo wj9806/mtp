@@ -11,7 +11,7 @@ spring:
     # username: root
     # password: root
     driver-class-name: org.h2.Driver
-    url: jdbc:h2:tcp://localhost:9092/${mtp.repository.h2-path};DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
+    url: jdbc:h2:tcp://localhost:9092/${mtp.repository.h2-path};DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE;MODE=MySQL
     username: mtp
     password: mtp
   h2:
@@ -25,8 +25,10 @@ spring:
       mode: always
       #schema-locations: classpath:schema-mysql.sql
       schema-locations: classpath:schema.sql
+      data-locations: classpath:data-h2.sql
 
 mybatis-plus:
+  mapper-locations: classpath:mapper/*.xml
   configuration:
     log-impl: org.apache.ibatis.logging.nologging.NoLoggingImpl
   global-config:

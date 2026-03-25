@@ -154,12 +154,12 @@ const onAppChange = () => {
 const loadPoolNames = async () => {
   if (!selectedApp.value) return
   try {
-    const data = await getConfigs(selectedApp.value, null, null, 1, 1000)
-    if (data && data.content) {
-      const pools = new Set(data.content.map(c => c.poolName))
+    const res = await getConfigs(selectedApp.value, null, null, 1, 1000)
+    if (res && res.records) {
+      const pools = new Set(res.records.map(c => c.poolName))
       poolNames.value = Array.from(pools)
-    } else if (data && Array.isArray(data)) {
-      const pools = new Set(data.map(c => c.poolName))
+    } else if (Array.isArray(res)) {
+      const pools = new Set(res.map(c => c.poolName))
       poolNames.value = Array.from(pools)
     }
   } catch (error) {
@@ -170,21 +170,21 @@ const loadPoolNames = async () => {
 const loadConfigs = async () => {
   loading.value = true
   try {
-    let data
+    let res
     if (selectedPool.value) {
-      data = await getConfigsByPool(selectedApp.value, selectedPool.value)
+      res = await getConfigsByPool(selectedApp.value, selectedPool.value)
       isBatchMode.value = true
-      total.value = Array.isArray(data) ? data.length : 0
-      configs.value = Array.isArray(data) ? data : []
+      total.value = Array.isArray(res) ? res.length : 0
+      configs.value = Array.isArray(res) ? res : []
     } else {
-      data = await getConfigs(selectedApp.value, null, null, currentPage.value, pageSize.value)
+      res = await getConfigs(selectedApp.value, null, null, currentPage.value, pageSize.value)
       isBatchMode.value = false
-      if (data && data.content) {
-        total.value = data.totalElements || 0
-        configs.value = data.content
-      } else if (data && Array.isArray(data)) {
-        total.value = data.length
-        configs.value = data
+      if (res && res.records) {
+        total.value = res.total || 0
+        configs.value = res.records
+      } else if (Array.isArray(res)) {
+        total.value = res.length
+        configs.value = res
       } else {
         total.value = 0
         configs.value = []
@@ -238,7 +238,7 @@ const saveConfig = async () => {
     dialogVisible.value = false
     loadConfigs()
   } catch (error) {
-    ElMessage.error(error.response?.data?.error || '配置更新失败')
+    ElMessage.error(error.message || '配置更新失败')
   }
 }
 
@@ -298,18 +298,11 @@ watch(() => props.applicationName, (val) => {
 
 .batch-tip-content {
   display: flex;
-  align-items: center;
   justify-content: space-between;
-  width: 100%;
+  align-items: center;
 }
 
 .batch-edit-btn {
-  flex-shrink: 0;
-}
-
-.batch-tip :deep(.el-alert__content) {
-  display: flex;
-  align-items: center;
-  width: 100%;
+  margin-left: 20px;
 }
 </style>

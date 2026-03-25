@@ -1,5 +1,6 @@
 package com.mtp.config.center.service;
 
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.mtp.config.center.config.MtpProperties;
 import com.mtp.config.center.model.ClientStatus;
 import com.mtp.config.center.repository.ConfigCenterRepository;
@@ -114,10 +115,8 @@ public class ConfigCenterService implements InitializingBean, DisposableBean {
         return repository.findConfigsByApplication(applicationName);
     }
 
-    public PagedResult<ThreadPoolConfig> getConfigsPaged(String applicationName, int page, int size) {
-        List<ThreadPoolConfig> configs = repository.findConfigsPaged(applicationName, page, size);
-        int total = repository.countConfigs(applicationName);
-        return new PagedResult<>(configs, total, page, size);
+    public Page<ThreadPoolConfig> getConfigsPaged(String applicationName, int page, int size) {
+        return repository.findConfigsPaged(applicationName, page, size);
     }
 
     public List<ThreadPoolConfig> getConfigsByInstance(String applicationName, String ip, Integer port) {
@@ -186,16 +185,17 @@ public class ConfigCenterService implements InitializingBean, DisposableBean {
         return repository.findClientReportTime(instanceId);
     }
 
-    public PagedResult<ApplicationInfo> getApplicationsFromRegistryPaged(String applicationName, int page, int size) {
-        List<ApplicationInfo> content = repository.findApplicationsFromRegistryPaged(applicationName, page, size);
-        int total = repository.countApplicationsFromRegistry(applicationName);
+    public Page<ApplicationInfo> getApplicationsFromRegistryPaged(String applicationName, int page, int size) {
+        Page<ApplicationInfo> pageResult = repository.findApplicationsFromRegistryPaged(applicationName, page, size);
 
-        content.get(0).addInstance(new ApplicationInfo.InstanceInfo("127.0.0.1", 8080, "ONLINE"));
-        content.get(0).addInstance(new ApplicationInfo.InstanceInfo("127.0.0.1", 8081, "ONLINE"));
-        content.get(0).addInstance(new ApplicationInfo.InstanceInfo("127.0.0.1", 8082, "ONLINE"));
-        content.get(0).addInstance(new ApplicationInfo.InstanceInfo("127.0.0.1", 8083, "ONLINE"));
-        content.get(0).addInstance(new ApplicationInfo.InstanceInfo("127.0.0.1", 8084, "ONLINE"));
-        return new PagedResult<>(content, total, page, size);
+        if (!pageResult.getRecords().isEmpty()) {
+            pageResult.getRecords().get(0).addInstance(new ApplicationInfo.InstanceInfo("127.0.0.1", 8080, "ONLINE"));
+            pageResult.getRecords().get(0).addInstance(new ApplicationInfo.InstanceInfo("127.0.0.1", 8081, "ONLINE"));
+            pageResult.getRecords().get(0).addInstance(new ApplicationInfo.InstanceInfo("127.0.0.1", 8082, "ONLINE"));
+            pageResult.getRecords().get(0).addInstance(new ApplicationInfo.InstanceInfo("127.0.0.1", 8083, "ONLINE"));
+            pageResult.getRecords().get(0).addInstance(new ApplicationInfo.InstanceInfo("127.0.0.1", 8084, "ONLINE"));
+        }
+        return pageResult;
     }
 
     @Override

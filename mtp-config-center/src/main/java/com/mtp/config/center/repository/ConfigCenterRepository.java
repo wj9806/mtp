@@ -1,5 +1,6 @@
 package com.mtp.config.center.repository;
 
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.mtp.core.model.ApplicationInfo;
 import com.mtp.core.model.ThreadPoolConfig;
 import com.mtp.core.model.ThreadPoolStatus;
@@ -22,7 +23,7 @@ public interface ConfigCenterRepository {
 
     List<ThreadPoolConfig> findConfigsByPoolName(String applicationName, String poolName);
 
-    List<ThreadPoolConfig> findConfigsPaged(String applicationName, int page, int size);
+    Page<ThreadPoolConfig> findConfigsPaged(String applicationName, int page, int size);
 
     int countConfigs(String applicationName);
 
@@ -50,7 +51,7 @@ public interface ConfigCenterRepository {
 
     Long findClientReportTime(String instanceId);
 
-    List<ApplicationInfo> findApplicationsFromRegistryPaged(String applicationName, int page, int size);
+    Page<ApplicationInfo> findApplicationsFromRegistryPaged(String applicationName, int page, int size);
 
     int countApplicationsFromRegistry(String applicationName);
 }

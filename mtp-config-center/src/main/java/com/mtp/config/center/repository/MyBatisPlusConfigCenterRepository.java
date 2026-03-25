@@ -1,7 +1,6 @@
 package com.mtp.config.center.repository;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
-import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.mtp.config.center.entity.ClientRegistryEntity;
 import com.mtp.config.center.entity.ThreadPoolConfigEntity;
@@ -104,16 +103,18 @@ public class MyBatisPlusConfigCenterRepository implements ConfigCenterRepository
     }
 
     @Override
-    public List<ThreadPoolConfig> findConfigsPaged(String applicationName, int page, int size) {
+    public Page<ThreadPoolConfig> findConfigsPaged(String applicationName, int page, int size) {
         Page<ThreadPoolConfigEntity> pageParam = new Page<>(page, size);
         LambdaQueryWrapper<ThreadPoolConfigEntity> wrapper = new LambdaQueryWrapper<>();
         if (applicationName != null && !applicationName.isEmpty()) {
             wrapper.eq(ThreadPoolConfigEntity::getApplicationName, applicationName);
         }
-        IPage<ThreadPoolConfigEntity> result = configMapper.selectPage(pageParam, wrapper);
-        return result.getRecords().stream()
+        Page<ThreadPoolConfigEntity> result = configMapper.selectPage(pageParam, wrapper);
+        Page<ThreadPoolConfig> pageResult = new Page<>(result.getCurrent(), result.getSize(), result.getTotal());
+        pageResult.setRecords(result.getRecords().stream()
             .map(this::toConfigModel)
-            .collect(Collectors.toList());
+            .collect(Collectors.toList()));
+        return pageResult;
     }
 
     @Override
@@ -178,7 +179,6 @@ public class MyBatisPlusConfigCenterRepository implements ConfigCenterRepository
 
     @Override
     public List<String> findAllApplications() {
-        //todo
         return clientRegistryMapper.selectList(null).stream().map(ClientRegistryEntity::getApplicationName)
                 .distinct().collect(Collectors.toList());
     }
@@ -243,7 +243,7 @@ public class MyBatisPlusConfigCenterRepository implements ConfigCenterRepository
     }
 
     @Override
-    public List<ApplicationInfo> findApplicationsFromRegistryPaged(String applicationName, int page, int size) {
+    public Page<ApplicationInfo> findApplicationsFromRegistryPaged(String applicationName, int page, int size) {
         LambdaQueryWrapper<ClientRegistryEntity> wrapper = new LambdaQueryWrapper<>();
         if (applicationName != null && !applicationName.isEmpty()) {
             wrapper.like(ClientRegistryEntity::getApplicationName, applicationName);
@@ -262,16 +262,20 @@ public class MyBatisPlusConfigCenterRepository implements ConfigCenterRepository
         int start = (page - 1) * size;
         int end = Math.min(start + size, total);
 
+        List<ApplicationInfo> pagedApps;
         if (start >= total) {
-            return new ArrayList<>();
+            pagedApps = new ArrayList<>();
+        } else {
+            pagedApps = appList.subList(start, end).stream().map(appName -> {
+                ApplicationInfo info = new ApplicationInfo(appName);
+                info.setInstances(appInstances.get(appName));
+                return info;
+            }).collect(Collectors.toList());
         }
 
-        List<String> pagedApps = appList.subList(start, end);
-        return pagedApps.stream().map(appName -> {
-            ApplicationInfo info = new ApplicationInfo(appName);
-            info.setInstances(appInstances.get(appName));
-            return info;
-        }).collect(Collectors.toList());
+        Page<ApplicationInfo> pageResult = new Page<>(page, size, total);
+        pageResult.setRecords(pagedApps);
+        return pageResult;
     }
 
     @Override

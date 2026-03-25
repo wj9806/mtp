@@ -1,15 +1,16 @@
 package com.mtp.config.center.controller;
 
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.mtp.config.center.model.R;
 import com.mtp.config.center.netty.NettyServer;
 import com.mtp.config.center.service.ConfigCenterService;
-import com.mtp.config.center.service.PagedResult;
 import com.mtp.core.model.ThreadPoolConfig;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.List;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -36,11 +37,12 @@ public class ConfigController {
     }
 
     @PutMapping("/update")
-    public void update(@RequestBody ThreadPoolConfig config) {
+    public R update(@RequestBody ThreadPoolConfig config) {
         String instanceId = config.getInstanceId();
         String poolName = config.getPoolName();
         configCenterService.updateConfigById(instanceId, poolName, config);
         notifyConfigChangeById(instanceId, poolName);
+        return R.ok();
     }
 
     private void notifyConfigChangeById(String instanceId, String poolName) {
@@ -55,33 +57,41 @@ public class ConfigController {
     }
 
     @GetMapping("/list")
-    public PagedResult<ThreadPoolConfig> list(@RequestParam(required = false) String applicationName,
-                                               @RequestParam(required = false) String ip,
-                                               @RequestParam(required = false) Integer port,
-                                               @RequestParam(defaultValue = "1") int page,
-                                               @RequestParam(defaultValue = "10") int size) {
+    public R list(@RequestParam(required = false) String applicationName,
+                  @RequestParam(required = false) String ip,
+                  @RequestParam(required = false) Integer port,
+                  @RequestParam(defaultValue = "1") int page,
+                  @RequestParam(defaultValue = "10") int size) {
         if (ip != null && port != null) {
             List<ThreadPoolConfig> configs = configCenterService.getConfigsByInstance(applicationName, ip, port);
-            return new PagedResult<>(configs, configs.size(), page, size);
+            Map<String, Object> data = new HashMap<>();
+            data.put("records", configs);
+            data.put("total", configs.size());
+            return R.ok(data);
         }
-        return configCenterService.getConfigsPaged(applicationName, page, size);
+        Page<ThreadPoolConfig> pageResult = configCenterService.getConfigsPaged(applicationName, page, size);
+        return R.ok(pageResult);
     }
 
+
     @PutMapping("/update-batch")
-    public int updateBatch(@RequestParam String applicationName,
-                          @RequestParam String poolName,
-                          @RequestBody ThreadPoolConfig config) {
+    public R updateBatch(@RequestParam String applicationName,
+                         @RequestParam String poolName,
+                         @RequestBody ThreadPoolConfig config) {
         int count = configCenterService.updateConfigsByAppAndPoolName(applicationName, poolName, config);
         if (count > 0) {
             notifyConfigChange(applicationName, poolName);
         }
-        return count;
+        Map<String, Object> data = new HashMap<>();
+        data.put("count", count);
+        return R.ok(data);
     }
 
     @GetMapping("/get-by-pool")
-    public List<ThreadPoolConfig> getByPool(@RequestParam String applicationName,
-                                           @RequestParam String poolName) {
-        return configCenterService.getConfigsByPoolName(applicationName, poolName);
+    public R getByPool(@RequestParam String applicationName,
+                       @RequestParam String poolName) {
+        List<ThreadPoolConfig> configs = configCenterService.getConfigsByPoolName(applicationName, poolName);
+        return R.ok(configs);
     }
 
     private void notifyConfigChange(String applicationName, String poolName) {

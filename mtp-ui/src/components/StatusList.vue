@@ -7,10 +7,10 @@
           <div>
             <el-select v-model="selectedApp" placeholder="选择应用" clearable @change="loadStatuses" style="width: 200px">
               <el-option
-                v-for="app in applications"
-                :key="app.applicationName"
-                :label="app.applicationName"
-                :value="app.applicationName"
+                  v-for="app in applications"
+                  :key="app.applicationName"
+                  :label="app.applicationName"
+                  :value="app.applicationName"
               />
             </el-select>
             <el-button type="primary" @click="loadStatuses" style="margin-left: 10px">刷新</el-button>
@@ -66,8 +66,8 @@ let refreshTimer = null
 
 const loadApplications = async () => {
   try {
-    const data = await getApplicationList()
-    applications.value = data || []
+    const res = await getApplicationList()
+    applications.value = res || []
   } catch (error) {
     console.error('Failed to load applications:', error)
   }
@@ -76,8 +76,8 @@ const loadApplications = async () => {
 const loadStatuses = async () => {
   loading.value = true
   try {
-    const data = await getStatuses(selectedApp.value || null)
-    statuses.value = data || []
+    const res = await getStatuses(selectedApp.value || null)
+    statuses.value = res || []
   } catch (error) {
     ElMessage.error('加载状态列表失败')
   } finally {
