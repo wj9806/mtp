@@ -7,6 +7,7 @@ import StatusList from '../components/StatusList.vue'
 import UserList from '../views/UserList.vue'
 import RoleList from '../views/RoleList.vue'
 import MenuList from '../views/MenuList.vue'
+import AppRegistryList from '../views/AppRegistryList.vue'
 
 const routes = [
   {
@@ -48,6 +49,11 @@ const routes = [
         path: 'menus',
         name: 'Menus',
         component: MenuList
+      },
+      {
+        path: 'app-registry',
+        name: 'AppRegistry',
+        component: AppRegistryList
       }
     ]
   }
