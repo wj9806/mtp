@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.mtp.core.api.MessageBus;
 import com.mtp.core.api.MessageBusTopic;
 import com.mtp.core.model.Message;
+import com.mtp.core.tp.MtpException;
 import io.netty.bootstrap.Bootstrap;
 import io.netty.channel.*;
 import io.netty.channel.nio.NioEventLoopGroup;
@@ -17,6 +18,7 @@ import io.netty.handler.codec.string.StringEncoder;
 import lombok.extern.slf4j.Slf4j;
 
 import java.nio.charset.StandardCharsets;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
@@ -28,7 +30,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
  * 支持自动重连机制，当连接断开时会自动尝试重连
  */
 @Slf4j
-public class NettyClient {
+public class MtpClient {
 
     private static final int RECONNECT_DELAY_SECONDS = 5;
     private static final int REQUEST_TIMEOUT_SECONDS = 30;
@@ -45,10 +47,14 @@ public class NettyClient {
     private final AtomicBoolean reconnecting = new AtomicBoolean(false);
     private Bootstrap bootstrap;
     private volatile boolean stopped = false;
+    private final String accessToken;
+    private final String applicationName;
 
-    public NettyClient(String host, int port) {
+    public MtpClient(String host, int port, String accessToken, String applicationName) {
         this.host = host;
         this.port = port;
+        this.accessToken = accessToken;
+        this.applicationName = applicationName;
     }
 
     public void start() {
@@ -133,7 +139,7 @@ public class NettyClient {
         stopped = true;
         connected = false;
         reconnecting.set(false);
-        pendingRequests.values().forEach(r -> r.responseFuture.completeExceptionally(new RuntimeException("Client stopped")));
+        pendingRequests.values().forEach(r -> r.responseFuture.completeExceptionally(new MtpException("Client stopped")));
         pendingRequests.clear();
         if (channel != null) {
             channel.close();
@@ -150,7 +156,7 @@ public class NettyClient {
                 Thread.sleep(100);
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
-                throw new RuntimeException("Interrupted while waiting for connection");
+                throw new MtpException("Interrupted while waiting for connection");
             }
         }
     }
@@ -161,11 +167,14 @@ public class NettyClient {
 
     public <T> T sendRequest(MessageType type, Object payload, TypeReference<T> typeReference) throws Exception {
         if (channel == null || !channel.isActive()) {
-            throw new RuntimeException("Not connected to server");
+            throw new MtpException("Not connected to mtp server: ");
         }
 
         String correlationId = UUID.randomUUID().toString();
         MessageRequest request = new MessageRequest();
+        request.headers = new HashMap<>();
+        request.headers.put("accessToken", accessToken);
+        request.headers.put("applicationName", applicationName);
         request.correlationId = correlationId;
         request.type = type.getType();
         request.payload = payload;

@@ -8,6 +8,7 @@ import com.mtp.config.center.mapper.ThreadPoolConfigMapper;
 import com.mtp.config.center.mapper.ThreadPoolStatusMapper;
 import com.mtp.config.center.repository.ConfigCenterRepository;
 import com.mtp.config.center.repository.MyBatisPlusConfigCenterRepository;
+import com.mtp.core.tp.MtpException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -30,7 +31,7 @@ public class MyBatisPlusConfig {
 
         if ("cluster".equals(mtpProperties.getDeploy().getType())) {
             if ("h2".equals(mtpProperties.getRepository().getType())) {
-                throw new RuntimeException("集群部署不支持H2数据库");
+                throw new MtpException("集群部署不支持H2数据库");
             }
         }
 

@@ -7,7 +7,8 @@ import com.mtp.core.model.ThreadPoolConfig;
 import com.mtp.core.model.ThreadPoolStatus;
 import com.mtp.core.netty.ConfigChangeEvent;
 import com.mtp.core.netty.MessageType;
-import com.mtp.core.netty.NettyClient;
+import com.mtp.core.netty.MtpClient;
+import com.mtp.core.tp.ResizableLinkedBlockingQueue;
 import com.mtp.core.tp.TpThreadPoolExecutor;
 import com.mtp.core.util.ExecutorUtil;
 import com.mtp.core.util.Md5Util;
@@ -32,7 +33,7 @@ public class DynamicThreadPoolManagerImpl implements DynamicThreadPoolManager {
     private final Map<String, ThreadPoolConfig> configs;
     private final Set<String> registeredPools;
     private final ConfigCenterClient configCenterClient;
-    private final NettyClient nettyClient;
+    private final MtpClient mtpClient;
     private final String applicationName;
     private final String ip;
     private final Integer port;
@@ -40,14 +41,13 @@ public class DynamicThreadPoolManagerImpl implements DynamicThreadPoolManager {
     private final AtomicBoolean isConfigCenterAvailable;
     private ClientProperties clientProperties;
 
-    public DynamicThreadPoolManagerImpl(ConfigCenterClient configCenterClient, 
-                                        NettyClient nettyClient, String applicationName, 
-                                        String ip, Integer port) {
-        this.configCenterClient = configCenterClient;
-        this.nettyClient = nettyClient;
+    public DynamicThreadPoolManagerImpl(String applicationName, String accessToken,
+                                        String mtpServerHost, Integer mtpServerPort, String localIp, Integer localPort) {
+        this.mtpClient = new MtpClient(mtpServerHost, mtpServerPort, accessToken, applicationName);
+        this.configCenterClient = new NettyConfigCenterClient(mtpClient);
         this.applicationName = applicationName;
-        this.ip = ip != null ? ip : NetworkUtil.getLocalIp();
-        this.port = port;
+        this.ip = localIp != null ? localIp : NetworkUtil.getLocalIp();
+        this.port = localPort == null ? -1 : localPort;
         this.instanceId = Md5Util.generateInstanceId(applicationName, ip, port);
         this.executors = new ConcurrentHashMap<>();
         this.configs = new ConcurrentHashMap<>();
@@ -59,12 +59,21 @@ public class DynamicThreadPoolManagerImpl implements DynamicThreadPoolManager {
             t.setName("mtp-client-scheduler");
             return t;
         });
+        Runtime.getRuntime().addShutdownHook(new Thread(this::stop, "Mtp-Client-Destroy-Hook"));
 
         subscribeMessage();
-        nettyClient.start();
-        nettyClient.awaitConnect();
-        pullClientServerConfigs();
-        startRetryTask();
+        connectMtpServer();
+    }
+
+    private void connectMtpServer() {
+        try {
+            mtpClient.start();
+            mtpClient.awaitConnect();
+            pullClientServerConfigs();
+            startRetryTask();
+        } catch (Exception e) {
+            log.error("Failed to start netty client: ", e);
+        }
     }
 
     private void subscribeMessage() {
@@ -89,7 +98,7 @@ public class DynamicThreadPoolManagerImpl implements DynamicThreadPoolManager {
             Optional<ThreadPoolConfig> op = configs.values().stream().findFirst();
             if (op.isPresent()) {
                 ThreadPoolConfig config = op.get();
-                this.nettyClient.sendNotification(MessageType.RE_REGISTER, config);
+                this.mtpClient.sendNotification(MessageType.RE_REGISTER, config);
             }
         });
 
@@ -139,13 +148,9 @@ public class DynamicThreadPoolManagerImpl implements DynamicThreadPoolManager {
         }
     }
 
-    private void pullClientServerConfigs() {
-        try {
-            this.clientProperties = nettyClient.sendRequest(MessageType.GET_CLIENT_SERVER_CONFIG, null, new TypeReference<ClientProperties>() {
-            });
-        } catch (Exception e) {
-            log.error("Failed to pull client server configs", e);
-        }
+    private void pullClientServerConfigs() throws Exception {
+        this.clientProperties = mtpClient.sendRequest(MessageType.GET_CLIENT_SERVER_CONFIG, null, new TypeReference<ClientProperties>() {
+        });
     }
 
     @Override
@@ -266,7 +271,6 @@ public class DynamicThreadPoolManagerImpl implements DynamicThreadPoolManager {
         status.setPoolSize(executor.getPoolSize());
         status.setTaskCount(taskCount);
         status.setCompletedTaskCount(completedTaskCount);
-        //todo 队列大小
         status.setQueueSize(executor.getQueue() != null ? executor.getQueue().size() : 0);
         status.setQueueCapacity(ExecutorUtil.blockingQueueCapacity(executor));
         status.setUpdateTime(System.currentTimeMillis());
@@ -276,10 +280,10 @@ public class DynamicThreadPoolManagerImpl implements DynamicThreadPoolManager {
 
     private void startRetryTask() {
         scheduledExecutor.scheduleAtFixedRate(
-            this::retryRegistrationAndReport,
-            clientProperties.getHeartbeatInterval(),
-            clientProperties.getHeartbeatInterval(),
-            TimeUnit.SECONDS
+                this::retryRegistrationAndReport,
+                clientProperties.getHeartbeatInterval(),
+                clientProperties.getHeartbeatInterval(),
+                TimeUnit.SECONDS
         );
     }
 
@@ -288,6 +292,7 @@ public class DynamicThreadPoolManagerImpl implements DynamicThreadPoolManager {
             return;
         }
 
+        //todo 如果有多个线程池 改成批量接口一次请求
         configs.forEach((poolName, config) -> {
             if (!registeredPools.contains(poolName)) {
                 doRegister(poolName, config);
@@ -348,8 +353,8 @@ public class DynamicThreadPoolManagerImpl implements DynamicThreadPoolManager {
     }
 
     public void stop() {
-        if (nettyClient != null) {
-            nettyClient.stop();
+        if (mtpClient != null) {
+            mtpClient.stop();
         }
         scheduledExecutor.shutdown();
         executors.values().forEach(ThreadPoolExecutor::shutdown);
@@ -376,7 +381,7 @@ public class DynamicThreadPoolManagerImpl implements DynamicThreadPoolManager {
         return new TpThreadPoolExecutor(
             config,
             TimeUnit.SECONDS,
-            new LinkedBlockingQueue<>(config.getQueueCapacity()),
+            new ResizableLinkedBlockingQueue<>(config.getQueueCapacity()),
             threadFactory
         );
     }

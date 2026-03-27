@@ -1,9 +1,10 @@
-package com.mtp.config.center.netty;
+package com.mtp.config.center.server;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.mtp.config.center.config.MtpProperties;
 import com.mtp.config.center.model.ClientInstance;
-import com.mtp.config.center.netty.handler.*;
+import com.mtp.config.center.server.handler.*;
+import com.mtp.config.center.server.interceptor.MessageInterceptor;
 import com.mtp.config.center.service.ConfigCenterService;
 import com.mtp.core.model.ThreadPoolConfig;
 import com.mtp.core.netty.MessageResponse;
@@ -17,11 +18,12 @@ import io.netty.handler.codec.LengthFieldPrepender;
 import io.netty.handler.codec.string.StringDecoder;
 import io.netty.handler.codec.string.StringEncoder;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.DisposableBean;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 
 import javax.annotation.PostConstruct;
-import javax.annotation.PreDestroy;
 import java.nio.charset.StandardCharsets;
 import java.util.Collections;
 import java.util.List;
@@ -35,7 +37,7 @@ import java.util.stream.Collectors;
  */
 @Slf4j
 @Component
-public class NettyServer {
+public class MtpServer implements DisposableBean {
 
     private static final int PORT = 9090;
 
@@ -47,14 +49,17 @@ public class NettyServer {
     private final List<ClientInstance> allChannels = new CopyOnWriteArrayList<>();
     private final MessageHandlerRegistry registry;
     private final MessageContext messageContext;
+    private final ObjectProvider<MessageInterceptor> messageInterceptors;
 
-    public NettyServer(ConfigCenterService configCenterService, MtpProperties mtpProperties) {
+    public MtpServer(ConfigCenterService configCenterService, MtpProperties mtpProperties,
+                     ObjectProvider<MessageInterceptor> messageInterceptors) {
         this.configCenterService = configCenterService;
         this.objectMapper = new ObjectMapper();
         this.registry = new MessageHandlerRegistry(this.objectMapper);
         this.messageContext = new MessageContext(configCenterService, this);
         this.mtpProperties = mtpProperties;
         this.registerHandlers();
+        this.messageInterceptors = messageInterceptors;
     }
 
     private void registerHandlers() {
@@ -87,7 +92,7 @@ public class NettyServer {
                             pipeline.addLast(new LengthFieldPrepender(4));
                             pipeline.addLast(new StringDecoder(StandardCharsets.UTF_8));
                             pipeline.addLast(new StringEncoder(StandardCharsets.UTF_8));
-                            pipeline.addLast(new ServerHandler(registry, messageContext, objectMapper));
+                            pipeline.addLast(new ServerHandler(registry, messageContext, objectMapper, messageInterceptors));
                         }
                     });
                 ChannelFuture future = bootstrap.bind(port).sync();
@@ -97,13 +102,6 @@ public class NettyServer {
                 log.error("Failed to start mtp server on port {}", port, e);
             }
         }, "mtp-server").start();
-    }
-
-    @PreDestroy
-    public void stop() {
-        bossGroup.shutdownGracefully();
-        workerGroup.shutdownGracefully();
-        log.info("mtp server stopped");
     }
 
     public void broadcastConfigChange(String applicationName, String poolName, List<ThreadPoolConfig> configs) {
@@ -188,9 +186,9 @@ public class NettyServer {
             .orElse(null);
     }
 
-    public void unregisterInstance(String instanceId) {
-        allChannels.removeIf(c -> c.getInstanceId().equals(instanceId));
-        log.info("Instance unregistered: {}", instanceId);
+    public void unregisterInstance(Channel channel) {
+        if (allChannels.removeIf(c -> c.getChannel().equals(channel)))
+            log.info("Instance unregistered: {}", channel);
     }
 
     public void requestClientStatus(String instanceId, String poolName) {
@@ -212,8 +210,10 @@ public class NettyServer {
         }
     }
 
-    public void removeClient(Channel channel) {
-        allChannels.removeIf(c -> c.getChannel().equals(channel));
-        log.info("Client removed");
+    @Override
+    public void destroy() throws Exception {
+        bossGroup.shutdownGracefully();
+        workerGroup.shutdownGracefully();
+        log.info("mtp server stopped");
     }
 }

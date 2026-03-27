@@ -1,7 +1,7 @@
-package com.mtp.config.center.netty;
+package com.mtp.config.center.server;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.mtp.config.center.netty.handler.MessageHandler;
+import com.mtp.config.center.server.handler.MessageHandler;
 import com.mtp.core.netty.MessageRequest;
 import com.mtp.core.netty.MessageType;
 import com.mtp.core.netty.MessageResponse;

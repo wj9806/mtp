@@ -1,7 +1,7 @@
-package com.mtp.config.center.netty.handler;
+package com.mtp.config.center.server.handler;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.mtp.config.center.netty.MessageContext;
+import com.mtp.config.center.server.MessageContext;
 import com.mtp.core.model.ThreadPoolConfig;
 import com.mtp.core.netty.MessageRequest;
 import com.mtp.core.netty.MessageType;
@@ -28,7 +28,7 @@ public class UpdateConfigHandler extends AbstractMessageHandler {
         ThreadPoolConfig config = parsePayload(request.payload, ThreadPoolConfig.class);
         if (config != null) {
             context.getConfigCenterService().updateConfig(config);
-            context.getNettyServer().notifyConfigChange(config.getApplicationName(), config.getPoolName());
+            context.getMtpServer().notifyConfigChange(config.getApplicationName(), config.getPoolName());
             return buildResponse(request.correlationId, MessageType.UPDATE_CONFIG, true);
         }
         return buildErrorResponse(request.correlationId, "Invalid config payload");

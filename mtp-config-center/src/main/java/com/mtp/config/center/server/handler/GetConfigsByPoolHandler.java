@@ -1,27 +1,28 @@
-package com.mtp.config.center.netty.handler;
+package com.mtp.config.center.server.handler;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.mtp.config.center.netty.MessageContext;
+import com.mtp.config.center.server.MessageContext;
 import com.mtp.core.model.ThreadPoolConfig;
 import com.mtp.core.netty.MessageRequest;
 import com.mtp.core.netty.MessageType;
 import io.netty.channel.ChannelHandlerContext;
 
 import java.io.IOException;
+import java.util.List;
 import java.util.Map;
 
 /**
- * 批量更新配置处理器，处理批量更新线程池配置的请求
+ * 获取线程池配置处理器，处理客户端查询线程池配置的请求
  */
-public class UpdateBatchHandler extends AbstractMessageHandler {
+public class GetConfigsByPoolHandler extends AbstractMessageHandler {
 
-    public UpdateBatchHandler(ObjectMapper objectMapper) {
+    public GetConfigsByPoolHandler(ObjectMapper objectMapper) {
         super(objectMapper);
     }
 
     @Override
     public MessageType getType() {
-        return MessageType.UPDATE_CONFIGS_BY_APP_AND_POOL;
+        return MessageType.GET_CONFIGS_BY_POOL;
     }
 
     @Override
@@ -31,17 +32,15 @@ public class UpdateBatchHandler extends AbstractMessageHandler {
             return buildErrorResponse(request.correlationId, "Invalid payload");
         }
 
-        ThreadPoolConfig config = parsePayload(params.get("config"), ThreadPoolConfig.class);
-        String applicationName = (String) params.get("applicationName");
+        String instanceId = (String) params.get("instanceId");
         String poolName = (String) params.get("poolName");
 
-        if (config == null || applicationName == null || poolName == null) {
+        if (instanceId == null || poolName == null) {
             return buildErrorResponse(request.correlationId, "Missing required parameters");
         }
 
-        int count = context.getConfigCenterService().updateConfigsByAppAndPoolName(applicationName, poolName, config);
-        context.getNettyServer().notifyConfigChange(applicationName, poolName);
-        return buildResponse(request.correlationId, MessageType.UPDATE_CONFIGS_BY_APP_AND_POOL, count);
+        List<ThreadPoolConfig> configs = context.getConfigCenterService().getConfigsByInstanceId(instanceId, poolName);
+        return buildResponse(request.correlationId, MessageType.GET_CONFIGS_BY_POOL, configs);
     }
 
     @SuppressWarnings("unchecked")
@@ -51,4 +50,5 @@ public class UpdateBatchHandler extends AbstractMessageHandler {
         }
         return null;
     }
+
 }

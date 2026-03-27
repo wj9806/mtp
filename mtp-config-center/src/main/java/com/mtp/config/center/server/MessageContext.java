@@ -1,4 +1,4 @@
-package com.mtp.config.center.netty;
+package com.mtp.config.center.server;
 
 import com.mtp.config.center.service.ConfigCenterService;
 
@@ -7,18 +7,18 @@ import com.mtp.config.center.service.ConfigCenterService;
  */
 public class MessageContext {
     private final ConfigCenterService configCenterService;
-    private final NettyServer nettyServer;
+    private final MtpServer mtpServer;
 
-    public MessageContext(ConfigCenterService configCenterService, NettyServer nettyServer) {
+    public MessageContext(ConfigCenterService configCenterService, MtpServer mtpServer) {
         this.configCenterService = configCenterService;
-        this.nettyServer = nettyServer;
+        this.mtpServer = mtpServer;
     }
 
     public ConfigCenterService getConfigCenterService() {
         return configCenterService;
     }
 
-    public NettyServer getNettyServer() {
-        return nettyServer;
+    public MtpServer getMtpServer() {
+        return mtpServer;
     }
 }

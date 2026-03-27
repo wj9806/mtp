@@ -1,4 +1,4 @@
-package com.mtp.config.center.netty.handler;
+package com.mtp.config.center.server.handler;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.mtp.core.netty.MessageResponse;

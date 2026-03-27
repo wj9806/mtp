@@ -64,4 +64,10 @@ public class ApplicationRegistryService {
         ApplicationRegistryEntity entity = applicationRegistryMapper.selectById(id);
         return R.ok(entity);
     }
+
+    public ApplicationRegistryEntity findByName(String applicationName) {
+        LambdaQueryWrapper<ApplicationRegistryEntity> wrapper = new LambdaQueryWrapper<>();
+        wrapper.eq(ApplicationRegistryEntity::getApplicationName, applicationName);
+        return applicationRegistryMapper.selectOne(wrapper);
+    }
 }

@@ -2,7 +2,7 @@ package com.mtp.config.center.controller;
 
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.mtp.config.center.model.R;
-import com.mtp.config.center.netty.NettyServer;
+import com.mtp.config.center.server.MtpServer;
 import com.mtp.config.center.service.ConfigCenterService;
 import com.mtp.core.model.ThreadPoolConfig;
 import lombok.extern.slf4j.Slf4j;
@@ -22,11 +22,11 @@ import java.util.Map;
 public class ConfigController {
 
     private final ConfigCenterService configCenterService;
-    private final NettyServer nettyServer;
+    private final MtpServer mtpServer;
 
-    public ConfigController(ConfigCenterService configCenterService, NettyServer nettyServer) {
+    public ConfigController(ConfigCenterService configCenterService, MtpServer mtpServer) {
         this.configCenterService = configCenterService;
-        this.nettyServer = nettyServer;
+        this.mtpServer = mtpServer;
     }
 
     @ExceptionHandler(IllegalArgumentException.class)
@@ -49,7 +49,7 @@ public class ConfigController {
         try {
             ThreadPoolConfig config = configCenterService.getConfig(instanceId, poolName);
             if (config != null) {
-                nettyServer.broadcastConfigChangeById(instanceId, poolName, config);
+                mtpServer.broadcastConfigChangeById(instanceId, poolName, config);
             }
         } catch (Exception e) {
             log.error("Failed to notify config change by id", e);
@@ -97,7 +97,7 @@ public class ConfigController {
     private void notifyConfigChange(String applicationName, String poolName) {
         try {
             List<ThreadPoolConfig> configs = configCenterService.getConfigsByPoolName(applicationName, poolName);
-            nettyServer.broadcastConfigChange(applicationName, poolName, configs);
+            mtpServer.broadcastConfigChange(applicationName, poolName, configs);
         } catch (Exception e) {
             log.error("Failed to notify config change", e);
         }

@@ -1,5 +1,6 @@
 package com.mtp.config.center.config;
 
+import com.mtp.core.tp.MtpException;
 import lombok.extern.slf4j.Slf4j;
 import org.h2.tools.Server;
 import org.springframework.beans.BeansException;
@@ -33,7 +34,7 @@ public class H2BeanFactoryPostProcessor implements BeanFactoryPostProcessor, Dis
             tcpServer.start();
             log.info("H2 TCP Server start on port 9092");
         } catch (SQLException e) {
-            throw new RuntimeException(e);
+            throw new MtpException(e);
         }
     }
 

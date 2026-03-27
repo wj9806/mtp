@@ -1,5 +1,7 @@
 package com.mtp.core.util;
 
+import com.mtp.core.tp.MtpException;
+
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 
@@ -18,7 +20,7 @@ public final class Md5Util {
             }
             return sb.toString();
         } catch (Exception e) {
-            throw new RuntimeException("MD5 calculation failed", e);
+            throw new MtpException("MD5 calculation failed", e);
         }
     }
 

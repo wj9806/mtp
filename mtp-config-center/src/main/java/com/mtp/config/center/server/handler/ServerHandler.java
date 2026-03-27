@@ -1,11 +1,20 @@
-package com.mtp.config.center.netty.handler;
+package com.mtp.config.center.server.handler;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.mtp.config.center.netty.MessageContext;
-import com.mtp.config.center.netty.MessageHandlerRegistry;
+import com.mtp.config.center.server.MessageContext;
+import com.mtp.config.center.server.MessageHandlerRegistry;
+import com.mtp.config.center.server.interceptor.MessageInterceptor;
+import com.mtp.core.api.MessageBus;
+import com.mtp.core.api.MessageBusTopic;
+import com.mtp.core.api.MessageListener;
+import com.mtp.core.model.Message;
 import com.mtp.core.netty.MessageRequest;
 import io.netty.channel.*;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.ObjectProvider;
+
+import java.util.List;
+import java.util.stream.Collectors;
 
 
 /**
@@ -17,23 +26,25 @@ public class ServerHandler extends ChannelInboundHandlerAdapter {
     private final MessageHandlerRegistry registry;
     private final MessageContext context;
     private final ObjectMapper objectMapper;
+    private final List<MessageInterceptor> messageInterceptors;
 
     public ServerHandler(MessageHandlerRegistry registry, MessageContext context,
-                         ObjectMapper objectMapper) {
+                         ObjectMapper objectMapper, ObjectProvider<MessageInterceptor> messageInterceptors) {
         this.registry = registry;
         this.context = context;
         this.objectMapper = objectMapper;
+        this.messageInterceptors = messageInterceptors.orderedStream().collect(Collectors.toList());
     }
 
     @Override
     public void channelActive(ChannelHandlerContext ctx) {
-        //String clientId = ctx.channel().remoteAddress().toString();
-        //context.getNettyServer().registerClient(clientId, ctx.channel());
+
     }
 
     @Override
     public void channelInactive(ChannelHandlerContext ctx) {
-        context.getNettyServer().removeClient(ctx.channel());
+        MessageBus.bus.publish(MessageBusTopic.CLIENT_CHANNEL_INACTIVE, new Message<>(ctx));
+        context.getMtpServer().unregisterInstance(ctx.channel());
     }
 
     @Override
@@ -45,6 +56,14 @@ public class ServerHandler extends ChannelInboundHandlerAdapter {
             if (message.startsWith("{")) {
                 MessageRequest request = objectMapper.readValue(message, MessageRequest.class);
 
+                if (messageInterceptors != null) {
+                    for (MessageInterceptor interceptor : messageInterceptors) {
+                        if (!interceptor.preHandle(request, ctx)) {
+                            log.warn("{} Message intercepted: {}", ctx.channel().remoteAddress(), request.getType());
+                            return;
+                        }
+                    }
+                }
                 String response = registry.route(ctx, request, context);
                 if (response != null) {
                     ctx.writeAndFlush(response + "\n");

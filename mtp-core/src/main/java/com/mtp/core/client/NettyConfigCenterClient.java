@@ -5,7 +5,7 @@ import com.mtp.core.api.ConfigCenterClient;
 import com.mtp.core.model.ThreadPoolConfig;
 import com.mtp.core.model.ThreadPoolStatus;
 import com.mtp.core.netty.MessageType;
-import com.mtp.core.netty.NettyClient;
+import com.mtp.core.netty.MtpClient;
 import lombok.extern.slf4j.Slf4j;
 
 import java.util.Collections;
@@ -16,11 +16,11 @@ import java.util.concurrent.ConcurrentHashMap;
 @Slf4j
 public class NettyConfigCenterClient implements ConfigCenterClient {
 
-    private final NettyClient nettyClient;
+    private final MtpClient mtpClient;
     private final Map<String, ThreadPoolConfig> configCache;
 
-    public NettyConfigCenterClient(NettyClient nettyClient) {
-        this.nettyClient = nettyClient;
+    public NettyConfigCenterClient(MtpClient mtpClient) {
+        this.mtpClient = mtpClient;
         this.configCache = new ConcurrentHashMap<>();
     }
 
@@ -29,7 +29,7 @@ public class NettyConfigCenterClient implements ConfigCenterClient {
         String key = buildKey(config.getInstanceId(), config.getPoolName());
         configCache.put(key, config);
         try {
-            nettyClient.sendNotification(MessageType.REGISTER, config);
+            mtpClient.sendNotification(MessageType.REGISTER, config);
         } catch (Exception e) {
             log.error("Failed to register config", e);
         }
@@ -43,7 +43,7 @@ public class NettyConfigCenterClient implements ConfigCenterClient {
             Map<String, Object> params = new ConcurrentHashMap<>();
             params.put("instanceId", instanceId);
             params.put("poolName", poolName);
-            nettyClient.sendNotification(MessageType.UNREGISTER, params);
+            mtpClient.sendNotification(MessageType.UNREGISTER, params);
         } catch (Exception e) {
             log.error("Failed to unregister", e);
         }
@@ -54,7 +54,7 @@ public class NettyConfigCenterClient implements ConfigCenterClient {
         String key = buildKey(config.getInstanceId(), config.getPoolName());
         configCache.put(key, config);
         try {
-            nettyClient.sendNotification(MessageType.UPDATE_CONFIG, config);
+            mtpClient.sendNotification(MessageType.UPDATE_CONFIG, config);
         } catch (Exception e) {
             log.error("Failed to update config", e);
         }
@@ -67,7 +67,7 @@ public class NettyConfigCenterClient implements ConfigCenterClient {
             params.put("applicationName", applicationName);
             params.put("poolName", poolName);
             params.put("config", config);
-            String response = nettyClient.sendRequest(MessageType.UPDATE_CONFIGS_BY_APP_AND_POOL, params);
+            String response = mtpClient.sendRequest(MessageType.UPDATE_CONFIGS_BY_APP_AND_POOL, params);
             return Integer.parseInt(response);
         } catch (Exception e) {
             log.error("Failed to update configs by app and pool", e);
@@ -85,7 +85,7 @@ public class NettyConfigCenterClient implements ConfigCenterClient {
             Map<String, Object> params = new ConcurrentHashMap<>();
             params.put("instanceId", instanceId);
             params.put("poolName", poolName);
-            ThreadPoolConfig config = nettyClient.sendRequest(MessageType.GET_CONFIG, params, new TypeReference<ThreadPoolConfig>() {});
+            ThreadPoolConfig config = mtpClient.sendRequest(MessageType.GET_CONFIG, params, new TypeReference<ThreadPoolConfig>() {});
             if (config != null) {
                 configCache.put(key, config);
             }
@@ -101,7 +101,7 @@ public class NettyConfigCenterClient implements ConfigCenterClient {
         try {
             Map<String, Object> params = new ConcurrentHashMap<>();
             params.put("applicationName", applicationName);
-            return nettyClient.sendRequest(MessageType.GET_ALL_CONFIGS, params, new TypeReference<List<ThreadPoolConfig>>() {});
+            return mtpClient.sendRequest(MessageType.GET_ALL_CONFIGS, params, new TypeReference<List<ThreadPoolConfig>>() {});
         } catch (Exception e) {
             log.error("Failed to get all configs", e);
             return Collections.emptyList();
@@ -114,7 +114,7 @@ public class NettyConfigCenterClient implements ConfigCenterClient {
             Map<String, Object> params = new ConcurrentHashMap<>();
             params.put("instanceId", instanceId);
             params.put("poolName", poolName);
-            return nettyClient.sendRequest(MessageType.GET_CONFIGS_BY_POOL, params, new TypeReference<List<ThreadPoolConfig>>() {});
+            return mtpClient.sendRequest(MessageType.GET_CONFIGS_BY_POOL, params, new TypeReference<List<ThreadPoolConfig>>() {});
         } catch (Exception e) {
             log.error("Failed to get configs by pool", e);
             return Collections.emptyList();
@@ -124,7 +124,7 @@ public class NettyConfigCenterClient implements ConfigCenterClient {
     @Override
     public void reportStatus(ThreadPoolStatus status) {
         try {
-            nettyClient.sendNotification(MessageType.REPORT_STATUS, status);
+            mtpClient.sendNotification(MessageType.REPORT_STATUS, status);
         } catch (Exception e) {
             log.error("Failed to report status", e);
         }
@@ -135,7 +135,7 @@ public class NettyConfigCenterClient implements ConfigCenterClient {
         try {
             Map<String, Object> params = new ConcurrentHashMap<>();
             params.put("applicationName", applicationName);
-            return nettyClient.sendRequest(MessageType.GET_ALL_STATUSES, params, new TypeReference<List<ThreadPoolStatus>>() {});
+            return mtpClient.sendRequest(MessageType.GET_ALL_STATUSES, params, new TypeReference<List<ThreadPoolStatus>>() {});
         } catch (Exception e) {
             log.error("Failed to get all statuses", e);
             return Collections.emptyList();
@@ -144,7 +144,7 @@ public class NettyConfigCenterClient implements ConfigCenterClient {
 
     @Override
     public String getConfigCenterUrl() {
-        return "netty://" + nettyClient;
+        return "netty://" + mtpClient;
     }
 
     private String buildKey(String instanceId, String poolName) {

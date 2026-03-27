@@ -2,18 +2,17 @@ package com.mtp.example2;
 
 import com.mtp.core.api.DynamicThreadPoolManager;
 import com.mtp.core.client.DynamicThreadPoolManagerImpl;
-import com.mtp.core.client.NettyConfigCenterClient;
 import com.mtp.core.model.ThreadPoolConfig;
-import com.mtp.core.netty.NettyClient;
 import com.mtp.core.util.NetworkUtil;
+
+import java.util.concurrent.Executor;
 
 public class MtpExample2Application {
 
     public static void main(String[] args) {
-        NettyClient nettyClient = new NettyClient("127.0.0.1", 9090);
-        NettyConfigCenterClient centerClient = new NettyConfigCenterClient(nettyClient);
-        DynamicThreadPoolManager threadPoolManager = new DynamicThreadPoolManagerImpl(centerClient, nettyClient,
-                "mtp-example2", NetworkUtil.getLocalIp(), 12138);
+        DynamicThreadPoolManager threadPoolManager = new DynamicThreadPoolManagerImpl("mtp-example2",
+                "", "localhost", 9090,
+                NetworkUtil.getLocalIp(), -1);
 
         ThreadPoolConfig businessConfig = new ThreadPoolConfig();
         businessConfig.setPoolName("business-pool");
@@ -24,5 +23,17 @@ public class MtpExample2Application {
         businessConfig.setRejectedPolicy("abort");
         threadPoolManager.registerPool("business-pool", businessConfig);
 
+        Executor executor = threadPoolManager.getExecutor("business-pool");
+
+        executor.execute(() -> {
+            while (true) {
+                try {
+                    Thread.sleep(1000);
+                } catch (InterruptedException e) {
+                    throw new RuntimeException(e);
+                }
+                System.out.println("hello world");
+            }
+        });
     }
 }

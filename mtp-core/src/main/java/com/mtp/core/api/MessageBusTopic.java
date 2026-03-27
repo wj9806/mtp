@@ -16,4 +16,9 @@ public interface MessageBusTopic {
      * 获取线程池当前状态
      */
     String GET_THREAD_POOL_STATUS = "get-thread-pool-status";
+
+    /**
+     * 客户端连接断开
+     */
+    String CLIENT_CHANNEL_INACTIVE = "CLIENT_CHANNEL_INACTIVE";
 }

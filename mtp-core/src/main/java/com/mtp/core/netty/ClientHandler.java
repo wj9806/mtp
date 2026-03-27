@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.mtp.core.api.MessageBus;
 import com.mtp.core.api.MessageBusTopic;
 import com.mtp.core.model.Message;
+import com.mtp.core.tp.MtpException;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInboundHandlerAdapter;
 import lombok.extern.slf4j.Slf4j;
@@ -34,7 +35,7 @@ public class ClientHandler extends ChannelInboundHandlerAdapter {
 
     @Override
     public void channelInactive(ChannelHandlerContext ctx) {
-        pendingRequests.values().forEach(r -> r.responseFuture.completeExceptionally(new RuntimeException("Connection lost")));
+        pendingRequests.values().forEach(r -> r.responseFuture.completeExceptionally(new MtpException("Connection lost")));
         pendingRequests.clear();
         log.warn("Disconnected from config center server, will attempt to reconnect");
     }
@@ -51,7 +52,7 @@ public class ClientHandler extends ChannelInboundHandlerAdapter {
                 if (response.correlationId != null && pendingRequests.containsKey(response.correlationId)) {
                     PendingRequest pendingRequest = pendingRequests.remove(response.correlationId);
                     if (response.error != null) {
-                        pendingRequest.responseFuture.completeExceptionally(new RuntimeException(response.error));
+                        pendingRequest.responseFuture.completeExceptionally(new MtpException(response.error));
                     } else {
                         pendingRequest.responseFuture.complete(response.data);
                     }
@@ -66,6 +67,8 @@ public class ClientHandler extends ChannelInboundHandlerAdapter {
                 } else if (MessageType.GET_ALL_STATUSES.getType().equals(response.type)) {
                     MessageBus.bus.publish(MessageBusTopic.GET_THREAD_POOL_STATUS, new Message<>(response.poolName));
                 }
+            } else {
+                log.warn("Received message from server: {}", message);
             }
         } catch (Exception e) {
             log.error("Error processing server message", e);
