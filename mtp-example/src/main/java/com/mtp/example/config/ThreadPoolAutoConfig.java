@@ -35,7 +35,7 @@ public class ThreadPoolAutoConfig {
             businessConfig.setCorePoolSize(10);
             businessConfig.setMaxPoolSize(20);
             businessConfig.setQueueCapacity(100);
-            businessConfig.setKeepAliveSeconds(60);
+            businessConfig.setKeepAliveSeconds(60L);
             businessConfig.setRejectedPolicy("abort");
             threadPoolManager.registerPool("business-pool", businessConfig);
 
@@ -44,7 +44,7 @@ public class ThreadPoolAutoConfig {
             asyncConfig.setCorePoolSize(5);
             asyncConfig.setMaxPoolSize(10);
             asyncConfig.setQueueCapacity(50);
-            asyncConfig.setKeepAliveSeconds(30);
+            asyncConfig.setKeepAliveSeconds(30L);
             asyncConfig.setRejectedPolicy("caller-runs");
             threadPoolManager.registerPool("async-pool", asyncConfig);
         }
