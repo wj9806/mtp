@@ -5,7 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.mtp.core.api.MessageBus;
 import com.mtp.core.api.MessageBusTopic;
 import com.mtp.core.model.Message;
-import com.mtp.core.tp.MtpException;
+import com.mtp.core.mtp.MtpException;
 import io.netty.bootstrap.Bootstrap;
 import io.netty.channel.*;
 import io.netty.channel.nio.NioEventLoopGroup;
@@ -90,7 +90,7 @@ public class MtpClient {
         }
 
         try {
-            log.info("Attempting to connect to Netty server at {}:{}", host, port);
+            log.info("Attempting to connect to Mtp server at {}:{}", host, port);
             ChannelFuture connectFuture = bootstrap.connect(host, port);
             connectFuture.addListener((ChannelFutureListener) f -> {
                 try {

@@ -52,7 +52,7 @@ public class ConfigCenterService implements InitializingBean, DisposableBean {
 
     public void updateConfigById(String instanceId, String poolName, ThreadPoolConfig newConfig) {
         validateConfig(newConfig);
-        ThreadPoolConfig existing = repository.findConfigById(instanceId, poolName);
+        ThreadPoolConfig existing = repository.findConfig(instanceId, poolName);
         if (existing != null) {
             existing.setCorePoolSize(newConfig.getCorePoolSize());
             existing.setMaxPoolSize(newConfig.getMaxPoolSize());
@@ -108,11 +108,7 @@ public class ConfigCenterService implements InitializingBean, DisposableBean {
     }
 
     public ThreadPoolConfig getConfig(String instanceId, String poolName) {
-        return repository.findConfigById(instanceId, poolName);
-    }
-
-    public List<ThreadPoolConfig> getAllConfigs(String applicationName) {
-        return repository.findConfigsByApplication(applicationName);
+        return repository.findConfig(instanceId, poolName);
     }
 
     public Page<ThreadPoolConfig> getConfigsPaged(String applicationName, int page, int size) {
@@ -125,9 +121,12 @@ public class ConfigCenterService implements InitializingBean, DisposableBean {
             .collect(Collectors.toList());
     }
 
-    public List<ThreadPoolConfig> getConfigsByInstanceId(String instanceId, String poolName) {
-        ThreadPoolConfig config = repository.findConfigById(instanceId, poolName);
-        return config == null ? new ArrayList<>() : Collections.singletonList(config);
+    public List<ThreadPoolConfig> findConfigListByInstanceId(String instanceId) {
+        return repository.findConfigListByInstanceId(instanceId);
+    }
+
+    public ThreadPoolConfig findConfig(String instanceId, String poolName) {
+        return repository.findConfig(instanceId, poolName);
     }
 
     public List<ThreadPoolConfig> getConfigsByPoolName(String applicationName, String poolName) {
@@ -151,14 +150,6 @@ public class ConfigCenterService implements InitializingBean, DisposableBean {
     public List<ApplicationInfo> getAllApplications() {
         return repository.findAllApplications().stream()
                 .map(ApplicationInfo::new).collect(Collectors.toList());
-    }
-
-    public Map<String, ThreadPoolConfig> getAllConfigsMap() {
-        return repository.findAllConfigs().stream()
-            .collect(Collectors.toMap(
-                c -> c.getInstanceId() + ":" + c.getPoolName(),
-                c -> c
-            ));
     }
 
     public void registerClient(String instanceId, String applicationName, String ip, Integer port) {

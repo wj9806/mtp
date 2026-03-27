@@ -6,6 +6,7 @@ import com.mtp.core.netty.MessageRequest;
 import com.mtp.core.netty.MessageType;
 import com.mtp.core.netty.MessageResponse;
 import io.netty.channel.ChannelHandlerContext;
+import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
 import java.util.HashMap;
@@ -14,6 +15,7 @@ import java.util.Map;
 /**
  * 消息处理器注册表，用于将消息类型路由到对应的处理器
  */
+@Slf4j
 public class MessageHandlerRegistry {
     private final ObjectMapper objectMapper;
     private final Map<MessageType, MessageHandler> handlers = new HashMap<>();
@@ -32,7 +34,12 @@ public class MessageHandlerRegistry {
         if (type != null) {
             MessageHandler handler = handlers.get(type);
             if (handler != null) {
-                return handler.handle(ctx, request, context);
+                try {
+                    return handler.handle(ctx, request, context);
+                } catch (Exception e) {
+                    log.error("Error handling message", e);
+                    return buildErrorResponse(request.correlationId, e.getMessage());
+                }
             }
         }
         return buildErrorResponse(request.correlationId, "Unknown request type: " + request.type);

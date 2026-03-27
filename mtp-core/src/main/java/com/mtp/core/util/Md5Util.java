@@ -1,6 +1,6 @@
 package com.mtp.core.util;
 
-import com.mtp.core.tp.MtpException;
+import com.mtp.core.mtp.MtpException;
 
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;

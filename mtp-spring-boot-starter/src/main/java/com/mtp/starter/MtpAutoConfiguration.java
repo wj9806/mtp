@@ -14,10 +14,10 @@ import org.springframework.context.annotation.Configuration;
  */
 @Configuration
 @EnableConfigurationProperties(MtpProperties.class)
+@ConditionalOnProperty(prefix = "mtp", name = "enabled", havingValue = "true")
 public class MtpAutoConfiguration {
 
     @Bean
-    @ConditionalOnProperty(prefix = "mtp", name = "enabled", havingValue = "true")
     public DynamicThreadPoolManager dynamicThreadPoolManager(
             MtpProperties properties,
             ServerProperties serverProperties) {
@@ -30,4 +30,10 @@ public class MtpAutoConfiguration {
             serverProperties.getPort()
         );
     }
+
+    @Bean
+    public MtpBeanPostProcessor mtpBeanPostProcessor(DynamicThreadPoolManager dynamicThreadPoolManager) {
+        return new MtpBeanPostProcessor(dynamicThreadPoolManager);
+    }
+
 }

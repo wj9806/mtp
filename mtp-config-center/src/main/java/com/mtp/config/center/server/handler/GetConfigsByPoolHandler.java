@@ -2,12 +2,14 @@ package com.mtp.config.center.server.handler;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.mtp.config.center.server.MessageContext;
+import com.mtp.config.center.service.ConfigCenterService;
 import com.mtp.core.model.ThreadPoolConfig;
 import com.mtp.core.netty.MessageRequest;
 import com.mtp.core.netty.MessageType;
 import io.netty.channel.ChannelHandlerContext;
 
 import java.io.IOException;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
@@ -33,13 +35,17 @@ public class GetConfigsByPoolHandler extends AbstractMessageHandler {
         }
 
         String instanceId = (String) params.get("instanceId");
-        String poolName = (String) params.get("poolName");
+        Object name = params.get("poolName");
+        String poolName = name == null ? null : (String) name;
 
-        if (instanceId == null || poolName == null) {
+        if (instanceId == null) {
             return buildErrorResponse(request.correlationId, "Missing required parameters");
         }
 
-        List<ThreadPoolConfig> configs = context.getConfigCenterService().getConfigsByInstanceId(instanceId, poolName);
+        ConfigCenterService configCenterService = context.getConfigCenterService();
+        List<ThreadPoolConfig> configs = poolName == null
+                ? configCenterService.findConfigListByInstanceId(instanceId)
+                : Collections.singletonList(configCenterService.findConfig(instanceId, poolName));
         return buildResponse(request.correlationId, MessageType.GET_CONFIGS_BY_POOL, configs);
     }
 

@@ -8,8 +8,8 @@ import com.mtp.core.model.ThreadPoolStatus;
 import com.mtp.core.netty.ConfigChangeEvent;
 import com.mtp.core.netty.MessageType;
 import com.mtp.core.netty.MtpClient;
-import com.mtp.core.tp.ResizableLinkedBlockingQueue;
-import com.mtp.core.tp.TpThreadPoolExecutor;
+import com.mtp.core.mtp.ResizableLinkedBlockingQueue;
+import com.mtp.core.mtp.MtpThreadPoolExecutor;
 import com.mtp.core.util.ExecutorUtil;
 import com.mtp.core.util.Md5Util;
 import com.mtp.core.util.NetworkUtil;
@@ -59,7 +59,7 @@ public class DynamicThreadPoolManagerImpl implements DynamicThreadPoolManager {
             t.setName("mtp-client-scheduler");
             return t;
         });
-        Runtime.getRuntime().addShutdownHook(new Thread(this::stop, "Mtp-Client-Destroy-Hook"));
+        Runtime.getRuntime().addShutdownHook(new Thread(this::stop, "MtpClientDestroyHook"));
 
         subscribeMessage();
         connectMtpServer();
@@ -116,7 +116,7 @@ public class DynamicThreadPoolManagerImpl implements DynamicThreadPoolManager {
     @Override
     public void registerPool(String poolName, ThreadPoolConfig config) {
         if (!StringUtils.hasText(poolName) || config == null) {
-            throw new IllegalArgumentException("poolName and config cannot be null");
+            throw new IllegalArgumentException("PoolName and Config cannot be null");
         }
         if (executors.containsKey(poolName)) {
             throw new IllegalStateException("Pool already exists: " + poolName);
@@ -132,6 +132,36 @@ public class DynamicThreadPoolManagerImpl implements DynamicThreadPoolManager {
         executors.put(poolName, executor);
         configs.put(poolName, config);
 
+        if (configCenterClient != null) {
+            doRegister(poolName, config);
+        }
+    }
+
+    @Override
+    public void registerPool(String poolName, ThreadPoolExecutor executor) {
+        if (!StringUtils.hasText(poolName) || executor == null) {
+            throw new IllegalArgumentException("PoolName and Executor cannot be null");
+        }
+        if (executors.containsKey(poolName)) {
+            throw new IllegalStateException("Pool already exists: " + poolName);
+        }
+
+        ThreadPoolConfig config = new ThreadPoolConfig();
+        config.setPoolName(poolName);
+        config.setCorePoolSize(executor.getCorePoolSize());
+        config.setMaxPoolSize(executor.getMaximumPoolSize());
+        config.setQueueCapacity(executor.getQueue().size());
+        config.setKeepAliveSeconds(executor.getKeepAliveTime(TimeUnit.SECONDS));
+        config.setRejectedExecutionHandler(executor.getRejectedExecutionHandler());
+
+        config.setApplicationName(applicationName);
+        config.setIp(ip);
+        config.setPort(port);
+        config.setInstanceId(instanceId);
+        config.setRegisterTime(System.currentTimeMillis());
+
+        executors.put(poolName, executor);
+        configs.put(poolName, config);
         if (configCenterClient != null) {
             doRegister(poolName, config);
         }
@@ -189,13 +219,6 @@ public class DynamicThreadPoolManagerImpl implements DynamicThreadPoolManager {
         executor.setMaximumPoolSize(newConfig.getMaxPoolSize());
         executor.setKeepAliveTime(newConfig.getKeepAliveSeconds(), TimeUnit.SECONDS);
         executor.setRejectedExecutionHandler(newConfig.getRejectedExecutionHandler());
-
-        /*if (configCenterClient != null && registeredPools.contains(poolName)) {
-            try {
-                configCenterClient.updateConfig(newConfig);
-            } catch (Exception e) {
-            }
-        }*/
     }
 
     private void doRefreshPool(String poolName, ThreadPoolConfig newConfig) {
@@ -218,16 +241,18 @@ public class DynamicThreadPoolManagerImpl implements DynamicThreadPoolManager {
 
     @Override
     public void reportStatus() {
+        List<ThreadPoolStatus> statuses = new ArrayList<>();
         executors.forEach((poolName, executor) -> {
             ThreadPoolStatus status = getPoolStatus(poolName);
             if (status != null && configCenterClient != null) {
-                try {
-                    configCenterClient.reportStatus(status);
-                } catch (Exception e) {
-                    log.error("[{}] Failed to report status: [{}]", poolName, configCenterClient.getConfigCenterUrl());
-                }
+                statuses.add(status);
             }
         });
+        try {
+            configCenterClient.reportStatus(statuses);
+        } catch (Exception e) {
+            log.error("Failed to report status: [{}]", configCenterClient.getConfigCenterUrl());
+        }
     }
 
     @Override
@@ -253,8 +278,8 @@ public class DynamicThreadPoolManagerImpl implements DynamicThreadPoolManager {
 
         long taskCount = 0;
         long completedTaskCount = 0;
-        if (executor instanceof TpThreadPoolExecutor) {
-            TpThreadPoolExecutor tpExecutor = (TpThreadPoolExecutor) executor;
+        if (executor instanceof MtpThreadPoolExecutor) {
+            MtpThreadPoolExecutor tpExecutor = (MtpThreadPoolExecutor) executor;
             taskCount = tpExecutor.getTaskCount();
             completedTaskCount = tpExecutor.getCompletedTaskCount();
         }
@@ -292,7 +317,6 @@ public class DynamicThreadPoolManagerImpl implements DynamicThreadPoolManager {
             return;
         }
 
-        //todo 如果有多个线程池 改成批量接口一次请求
         configs.forEach((poolName, config) -> {
             if (!registeredPools.contains(poolName)) {
                 doRegister(poolName, config);
@@ -308,11 +332,16 @@ public class DynamicThreadPoolManagerImpl implements DynamicThreadPoolManager {
             return;
         }
 
+        List<ThreadPoolConfig> remoteConfigs = configCenterClient.getConfigsByInstanceId(instanceId);
         configs.forEach((poolName, currentConfig) -> {
             try {
-                List<ThreadPoolConfig> remoteConfigs = configCenterClient.getConfigsByInstanceId(instanceId, poolName);
                 if (remoteConfigs != null && !remoteConfigs.isEmpty()) {
-                    ThreadPoolConfig remoteConfig = remoteConfigs.get(0);
+                    Optional<ThreadPoolConfig> remoteConfigOp = remoteConfigs.stream().filter(c -> c.getPoolName().equals(poolName)).findFirst();
+                    ThreadPoolConfig remoteConfig = remoteConfigOp.orElse(null);
+                    if (remoteConfig == null) {
+                        log.info("[{}] Config not found in config center", poolName);
+                        return;
+                    }
                     if (hasConfigChanged(currentConfig, remoteConfig)) {
                         String changedFields = getChangedFields(currentConfig, remoteConfig);
                         log.info("[{}] Config changed from config center: {}", poolName, changedFields);
@@ -378,7 +407,7 @@ public class DynamicThreadPoolManagerImpl implements DynamicThreadPoolManager {
             return t;
         };
 
-        return new TpThreadPoolExecutor(
+        return new MtpThreadPoolExecutor(
             config,
             TimeUnit.SECONDS,
             new ResizableLinkedBlockingQueue<>(config.getQueueCapacity()),

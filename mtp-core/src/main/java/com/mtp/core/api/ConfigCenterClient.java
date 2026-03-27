@@ -19,9 +19,13 @@ public interface ConfigCenterClient {
 
     List<ThreadPoolConfig> getAllConfigs(String applicationName);
 
+    List<ThreadPoolConfig> getConfigsByInstanceId(String instanceId);
+
     List<ThreadPoolConfig> getConfigsByInstanceId(String instanceId, String poolName);
 
     void reportStatus(ThreadPoolStatus status);
+
+    void reportStatus(List<ThreadPoolStatus> statuses);
 
     List<ThreadPoolStatus> getAllStatuses(String applicationName);
 

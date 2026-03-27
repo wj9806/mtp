@@ -18,7 +18,7 @@ public class ThreadPoolConfig implements Serializable {
     private Integer corePoolSize;
     private Integer maxPoolSize;
     private Integer queueCapacity;
-    private Integer keepAliveSeconds;
+    private Long keepAliveSeconds;
     private String rejectedPolicy;
     private String applicationName;
     private Long registerTime;
@@ -32,7 +32,7 @@ public class ThreadPoolConfig implements Serializable {
     }
 
     public ThreadPoolConfig(String poolName, Integer corePoolSize, Integer maxPoolSize,
-                           Integer queueCapacity, Integer keepAliveSeconds, String rejectedPolicy) {
+                           Integer queueCapacity, Long keepAliveSeconds, String rejectedPolicy) {
         this.poolName = poolName;
         this.corePoolSize = corePoolSize;
         this.maxPoolSize = maxPoolSize;
@@ -44,7 +44,7 @@ public class ThreadPoolConfig implements Serializable {
     @JsonIgnore
     public RejectedExecutionHandler getRejectedExecutionHandler() {
         if (rejectedPolicy == null) {
-            return new ThreadPoolExecutor.AbortPolicy();
+            return new ThreadPoolExecutor.CallerRunsPolicy();
         }
         switch (rejectedPolicy.toLowerCase()) {
             case "abort":
@@ -56,6 +56,26 @@ public class ThreadPoolConfig implements Serializable {
             case "caller-runs":
             default:
                 return new ThreadPoolExecutor.CallerRunsPolicy();
+        }
+    }
+
+    @JsonIgnore
+    public void setRejectedExecutionHandler(RejectedExecutionHandler rejectedExecutionHandler) {
+        if (rejectedExecutionHandler == null) {
+            this.rejectedPolicy = "caller-runs";
+            return;
+        }
+
+        if (rejectedExecutionHandler instanceof ThreadPoolExecutor.AbortPolicy) {
+            this.rejectedPolicy = "abort";
+        } else if (rejectedExecutionHandler instanceof ThreadPoolExecutor.DiscardPolicy) {
+            this.rejectedPolicy = "discard";
+        } else if (rejectedExecutionHandler instanceof ThreadPoolExecutor.DiscardOldestPolicy) {
+            this.rejectedPolicy = "discard-oldest";
+        } else if (rejectedExecutionHandler instanceof ThreadPoolExecutor.CallerRunsPolicy) {
+            this.rejectedPolicy = "caller-runs";
+        } else {
+            this.rejectedPolicy = "caller-runs";
         }
     }
 }

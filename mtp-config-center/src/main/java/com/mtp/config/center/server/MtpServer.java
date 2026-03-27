@@ -69,6 +69,7 @@ public class MtpServer implements DisposableBean {
             .register(new UpdateConfigHandler(objectMapper))
             .register(new UpdateBatchHandler(objectMapper))
             .register(new ReportStatusHandler(objectMapper))
+            .register(new ReportStatusesHandler(objectMapper))
             .register(new GetConfigsByPoolHandler(objectMapper))
             .register(new GetClientServerConfigHandler(objectMapper, mtpProperties));
     }

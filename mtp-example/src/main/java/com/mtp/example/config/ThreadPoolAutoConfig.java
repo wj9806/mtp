@@ -2,6 +2,7 @@ package com.mtp.example.config;
 
 import com.mtp.core.api.DynamicThreadPoolManager;
 import com.mtp.core.model.ThreadPoolConfig;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -9,6 +10,7 @@ import org.springframework.context.annotation.Configuration;
  * 线程池自动配置类，用于初始化示例应用的线程池
  */
 @Configuration
+@ConditionalOnProperty(prefix = "mtp", name = "enabled", havingValue = "true")
 public class ThreadPoolAutoConfig {
 
     @Bean

@@ -5,6 +5,7 @@ import com.mtp.core.model.ThreadPoolStatus;
 
 import java.util.List;
 import java.util.concurrent.Executor;
+import java.util.concurrent.ThreadPoolExecutor;
 
 /**
  * 动态线程池管理器接口，提供线程池的注册、注销、刷新等功能
@@ -12,6 +13,8 @@ import java.util.concurrent.Executor;
 public interface DynamicThreadPoolManager {
 
     void registerPool(String poolName, ThreadPoolConfig config);
+
+    void registerPool(String poolName, ThreadPoolExecutor executor);
 
     void unregisterPool(String poolName);
 

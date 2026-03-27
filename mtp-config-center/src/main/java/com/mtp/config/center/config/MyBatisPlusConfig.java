@@ -8,7 +8,7 @@ import com.mtp.config.center.mapper.ThreadPoolConfigMapper;
 import com.mtp.config.center.mapper.ThreadPoolStatusMapper;
 import com.mtp.config.center.repository.ConfigCenterRepository;
 import com.mtp.config.center.repository.MyBatisPlusConfigCenterRepository;
-import com.mtp.core.tp.MtpException;
+import com.mtp.core.mtp.MtpException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;

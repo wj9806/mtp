@@ -9,6 +9,7 @@ import com.mtp.core.netty.MtpClient;
 import lombok.extern.slf4j.Slf4j;
 
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -40,7 +41,7 @@ public class NettyConfigCenterClient implements ConfigCenterClient {
         String key = buildKey(instanceId, poolName);
         configCache.remove(key);
         try {
-            Map<String, Object> params = new ConcurrentHashMap<>();
+            Map<String, Object> params = new HashMap<>();
             params.put("instanceId", instanceId);
             params.put("poolName", poolName);
             mtpClient.sendNotification(MessageType.UNREGISTER, params);
@@ -63,7 +64,7 @@ public class NettyConfigCenterClient implements ConfigCenterClient {
     @Override
     public int updateConfigsByAppAndPoolName(String applicationName, String poolName, ThreadPoolConfig config) {
         try {
-            Map<String, Object> params = new ConcurrentHashMap<>();
+            Map<String, Object> params = new HashMap<>();
             params.put("applicationName", applicationName);
             params.put("poolName", poolName);
             params.put("config", config);
@@ -82,7 +83,7 @@ public class NettyConfigCenterClient implements ConfigCenterClient {
             return configCache.get(key);
         }
         try {
-            Map<String, Object> params = new ConcurrentHashMap<>();
+            Map<String, Object> params = new HashMap<>();
             params.put("instanceId", instanceId);
             params.put("poolName", poolName);
             ThreadPoolConfig config = mtpClient.sendRequest(MessageType.GET_CONFIG, params, new TypeReference<ThreadPoolConfig>() {});
@@ -99,7 +100,7 @@ public class NettyConfigCenterClient implements ConfigCenterClient {
     @Override
     public List<ThreadPoolConfig> getAllConfigs(String applicationName) {
         try {
-            Map<String, Object> params = new ConcurrentHashMap<>();
+            Map<String, Object> params = new HashMap<>();
             params.put("applicationName", applicationName);
             return mtpClient.sendRequest(MessageType.GET_ALL_CONFIGS, params, new TypeReference<List<ThreadPoolConfig>>() {});
         } catch (Exception e) {
@@ -109,9 +110,14 @@ public class NettyConfigCenterClient implements ConfigCenterClient {
     }
 
     @Override
+    public List<ThreadPoolConfig> getConfigsByInstanceId(String instanceId) {
+        return getConfigsByInstanceId(instanceId, null);
+    }
+
+    @Override
     public List<ThreadPoolConfig> getConfigsByInstanceId(String instanceId, String poolName) {
         try {
-            Map<String, Object> params = new ConcurrentHashMap<>();
+            Map<String, Object> params = new HashMap<>();
             params.put("instanceId", instanceId);
             params.put("poolName", poolName);
             return mtpClient.sendRequest(MessageType.GET_CONFIGS_BY_POOL, params, new TypeReference<List<ThreadPoolConfig>>() {});
@@ -131,9 +137,18 @@ public class NettyConfigCenterClient implements ConfigCenterClient {
     }
 
     @Override
+    public void reportStatus(List<ThreadPoolStatus> statuses) {
+        try {
+            mtpClient.sendNotification(MessageType.REPORT_STATUSES, statuses);
+        } catch (Exception e) {
+            log.error("Failed to report status", e);
+        }
+    }
+
+    @Override
     public List<ThreadPoolStatus> getAllStatuses(String applicationName) {
         try {
-            Map<String, Object> params = new ConcurrentHashMap<>();
+            Map<String, Object> params = new HashMap<>();
             params.put("applicationName", applicationName);
             return mtpClient.sendRequest(MessageType.GET_ALL_STATUSES, params, new TypeReference<List<ThreadPoolStatus>>() {});
         } catch (Exception e) {

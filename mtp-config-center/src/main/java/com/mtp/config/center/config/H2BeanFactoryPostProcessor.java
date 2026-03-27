@@ -1,6 +1,6 @@
 package com.mtp.config.center.config;
 
-import com.mtp.core.tp.MtpException;
+import com.mtp.core.mtp.MtpException;
 import lombok.extern.slf4j.Slf4j;
 import org.h2.tools.Server;
 import org.springframework.beans.BeansException;

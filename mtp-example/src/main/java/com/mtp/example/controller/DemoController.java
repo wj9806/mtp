@@ -14,7 +14,7 @@ import java.util.concurrent.Executor;
 @RequestMapping("/demo")
 public class DemoController {
 
-    private final DynamicThreadPoolManager threadPoolManager;
+/*    private final DynamicThreadPoolManager threadPoolManager;
 
     public DemoController(DynamicThreadPoolManager threadPoolManager) {
         this.threadPoolManager = threadPoolManager;
@@ -43,5 +43,5 @@ public class DemoController {
     @GetMapping("/status")
     public String getStatus() {
         return threadPoolManager.getAllPoolNames().toString();
-    }
+    }*/
 }

@@ -4,7 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.mtp.core.api.MessageBus;
 import com.mtp.core.api.MessageBusTopic;
 import com.mtp.core.model.Message;
-import com.mtp.core.tp.MtpException;
+import com.mtp.core.mtp.MtpException;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInboundHandlerAdapter;
 import lombok.extern.slf4j.Slf4j;

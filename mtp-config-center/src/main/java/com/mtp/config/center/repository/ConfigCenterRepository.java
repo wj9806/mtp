@@ -15,7 +15,9 @@ public interface ConfigCenterRepository {
 
     void deleteConfig(String instanceId, String poolName);
 
-    ThreadPoolConfig findConfigById(String instanceId, String poolName);
+    ThreadPoolConfig findConfig(String instanceId, String poolName);
+
+    List<ThreadPoolConfig> findConfigListByInstanceId(String instanceId);
 
     List<ThreadPoolConfig> findAllConfigs();
 
@@ -25,13 +27,9 @@ public interface ConfigCenterRepository {
 
     Page<ThreadPoolConfig> findConfigsPaged(String applicationName, int page, int size);
 
-    int countConfigs(String applicationName);
-
     void saveStatus(ThreadPoolStatus status);
 
     void deleteStatus(String instanceId, String poolName);
-
-    ThreadPoolStatus findStatusById(String instanceId, String poolName);
 
     List<ThreadPoolStatus> findAllStatuses();
 

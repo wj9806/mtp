@@ -15,6 +15,7 @@ import com.mtp.core.model.ThreadPoolConfig;
 import com.mtp.core.model.ThreadPoolStatus;
 import org.springframework.beans.BeanUtils;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.CollectionUtils;
 
 import java.util.*;
 import java.util.stream.Collectors;
@@ -65,12 +66,21 @@ public class MyBatisPlusConfigCenterRepository implements ConfigCenterRepository
     }
 
     @Override
-    public ThreadPoolConfig findConfigById(String instanceId, String poolName) {
+    public ThreadPoolConfig findConfig(String instanceId, String poolName) {
         LambdaQueryWrapper<ThreadPoolConfigEntity> wrapper = new LambdaQueryWrapper<>();
-        wrapper.eq(ThreadPoolConfigEntity::getInstanceId, instanceId)
-               .eq(ThreadPoolConfigEntity::getPoolName, poolName);
+        wrapper.eq(ThreadPoolConfigEntity::getInstanceId, instanceId);
+        if (poolName != null)
+            wrapper.eq(ThreadPoolConfigEntity::getPoolName, poolName);
         ThreadPoolConfigEntity entity = configMapper.selectOne(wrapper);
         return entity == null ? null : toConfigModel(entity);
+    }
+
+    @Override
+    public List<ThreadPoolConfig> findConfigListByInstanceId(String instanceId) {
+        LambdaQueryWrapper<ThreadPoolConfigEntity> wrapper = new LambdaQueryWrapper<>();
+        wrapper.eq(ThreadPoolConfigEntity::getInstanceId, instanceId);
+        List<ThreadPoolConfigEntity> entities = configMapper.selectList(wrapper);
+        return CollectionUtils.isEmpty(entities) ? null : entities.stream().map(this::toConfigModel).collect(Collectors.toList());
     }
 
     @Override
@@ -118,15 +128,6 @@ public class MyBatisPlusConfigCenterRepository implements ConfigCenterRepository
     }
 
     @Override
-    public int countConfigs(String applicationName) {
-        LambdaQueryWrapper<ThreadPoolConfigEntity> wrapper = new LambdaQueryWrapper<>();
-        if (applicationName != null && !applicationName.isEmpty()) {
-            wrapper.eq(ThreadPoolConfigEntity::getApplicationName, applicationName);
-        }
-        return configMapper.selectCount(wrapper).intValue();
-    }
-
-    @Override
     public void saveStatus(ThreadPoolStatus status) {
         ThreadPoolStatusEntity entity = toStatusEntity(status);
         entity.setUpdateTime(System.currentTimeMillis());
@@ -147,15 +148,6 @@ public class MyBatisPlusConfigCenterRepository implements ConfigCenterRepository
         wrapper.eq(ThreadPoolStatusEntity::getInstanceId, instanceId)
                .eq(ThreadPoolStatusEntity::getPoolName, poolName);
         statusMapper.delete(wrapper);
-    }
-
-    @Override
-    public ThreadPoolStatus findStatusById(String instanceId, String poolName) {
-        LambdaQueryWrapper<ThreadPoolStatusEntity> wrapper = new LambdaQueryWrapper<>();
-        wrapper.eq(ThreadPoolStatusEntity::getInstanceId, instanceId)
-               .eq(ThreadPoolStatusEntity::getPoolName, poolName);
-        ThreadPoolStatusEntity entity = statusMapper.selectOne(wrapper);
-        return entity == null ? null : toStatusModel(entity);
     }
 
     @Override

@@ -1,4 +1,4 @@
-package com.mtp.core.tp;
+package com.mtp.core.mtp;
 
 public class MtpException extends RuntimeException {
 
