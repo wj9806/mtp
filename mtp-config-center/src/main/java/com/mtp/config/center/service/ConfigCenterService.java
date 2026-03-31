@@ -35,7 +35,6 @@ public class ConfigCenterService implements InitializingBean, DisposableBean {
         validateConfig(config);
         config.setRegisterTime(System.currentTimeMillis());
         repository.saveConfig(config);
-        log.info("Registered config: [{}:{}]", config.getInstanceId(), config.getPoolName());
     }
 
     public void unregisterConfig(String instanceId, String poolName) {

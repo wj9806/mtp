@@ -32,8 +32,12 @@ public class MtpAutoConfiguration {
     }
 
     @Bean
-    public MtpBeanPostProcessor mtpBeanPostProcessor(DynamicThreadPoolManager dynamicThreadPoolManager) {
-        return new MtpBeanPostProcessor(dynamicThreadPoolManager);
+    public MtpExecutorBeanPostProcessor mtpBeanPostProcessor(DynamicThreadPoolManager dynamicThreadPoolManager) {
+        return new MtpExecutorBeanPostProcessor(dynamicThreadPoolManager);
     }
 
+    @Bean
+    public MtpRegisterExecutorBeanPostProcessor mtpRegisterExecutorBeanPostProcessor(DynamicThreadPoolManager dynamicThreadPoolManager) {
+        return new MtpRegisterExecutorBeanPostProcessor(dynamicThreadPoolManager);
+    }
 }

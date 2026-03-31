@@ -32,7 +32,7 @@ public class ThreadPoolConfigEntity {
     private Integer queueCapacity;
 
     @TableField("keep_alive_seconds")
-    private Integer keepAliveSeconds;
+    private Long keepAliveSeconds;
 
     @TableField("rejected_policy")
     private String rejectedPolicy;

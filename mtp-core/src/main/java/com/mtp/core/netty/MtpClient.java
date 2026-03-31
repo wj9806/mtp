@@ -102,7 +102,7 @@ public class MtpClient {
                             messageBus.publish(MessageBusTopic.RE_REGISTER, new Message<>(null));
                         }
                         reconnecting.set(false);
-                        log.info("Connected to Netty server at {}:{}", host, port);
+                        log.info("Connected to Mtp server at {}:{}", host, port);
                         channel.closeFuture().addListener((ChannelFutureListener) cf -> {
                             connected = false;
                             log.warn("Connection closed, will attempt to reconnect");

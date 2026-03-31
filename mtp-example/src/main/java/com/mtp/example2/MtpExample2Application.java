@@ -19,7 +19,7 @@ public class MtpExample2Application {
         businessConfig.setCorePoolSize(10);
         businessConfig.setMaxPoolSize(20);
         businessConfig.setQueueCapacity(100);
-        businessConfig.setKeepAliveSeconds(60);
+        businessConfig.setKeepAliveSeconds(60L);
         businessConfig.setRejectedPolicy("abort");
         threadPoolManager.registerPool("business-pool", businessConfig);
 

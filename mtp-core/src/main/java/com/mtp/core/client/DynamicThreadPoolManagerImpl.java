@@ -14,6 +14,7 @@ import com.mtp.core.util.ExecutorUtil;
 import com.mtp.core.util.Md5Util;
 import com.mtp.core.util.NetworkUtil;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.util.CollectionUtils;
 import org.springframework.util.StringUtils;
 
 import java.util.*;
@@ -114,7 +115,7 @@ public class DynamicThreadPoolManagerImpl implements DynamicThreadPoolManager {
     }
 
     @Override
-    public void registerPool(String poolName, ThreadPoolConfig config) {
+    public synchronized void registerPool(String poolName, ThreadPoolConfig config) {
         if (!StringUtils.hasText(poolName) || config == null) {
             throw new IllegalArgumentException("PoolName and Config cannot be null");
         }
@@ -317,14 +318,17 @@ public class DynamicThreadPoolManagerImpl implements DynamicThreadPoolManager {
             return;
         }
 
+        registerAllConfig();
+        pullConfigChanges();
+        reportStatus();
+    }
+
+    private void registerAllConfig() {
         configs.forEach((poolName, config) -> {
             if (!registeredPools.contains(poolName)) {
                 doRegister(poolName, config);
             }
         });
-
-        pullConfigChanges();
-        reportStatus();
     }
 
     private void pullConfigChanges() {
@@ -333,9 +337,12 @@ public class DynamicThreadPoolManagerImpl implements DynamicThreadPoolManager {
         }
 
         List<ThreadPoolConfig> remoteConfigs = configCenterClient.getConfigsByInstanceId(instanceId);
-        configs.forEach((poolName, currentConfig) -> {
-            try {
-                if (remoteConfigs != null && !remoteConfigs.isEmpty()) {
+        if (CollectionUtils.isEmpty(remoteConfigs)) {
+            //远程没有配置,需要推送本地配置
+            configs.forEach(this::doRegister);
+        } else {
+            configs.forEach((poolName, currentConfig) -> {
+                try {
                     Optional<ThreadPoolConfig> remoteConfigOp = remoteConfigs.stream().filter(c -> c.getPoolName().equals(poolName)).findFirst();
                     ThreadPoolConfig remoteConfig = remoteConfigOp.orElse(null);
                     if (remoteConfig == null) {
@@ -347,11 +354,11 @@ public class DynamicThreadPoolManagerImpl implements DynamicThreadPoolManager {
                         log.info("[{}] Config changed from config center: {}", poolName, changedFields);
                         refreshPool(poolName, remoteConfig);
                     }
+                } catch (Exception e) {
+                    log.debug("[{}] Failed to pull config changes: {}", poolName, e.getMessage());
                 }
-            } catch (Exception e) {
-                log.debug("[{}] Failed to pull config changes: {}", poolName, e.getMessage());
-            }
-        });
+            });
+        }
     }
 
     private boolean hasConfigChanged(ThreadPoolConfig local, ThreadPoolConfig remote) {
@@ -390,14 +397,6 @@ public class DynamicThreadPoolManagerImpl implements DynamicThreadPoolManager {
         executors.clear();
         configs.clear();
         registeredPools.clear();
-    }
-
-    public boolean isConfigCenterAvailable() {
-        return isConfigCenterAvailable.get();
-    }
-
-    public Set<String> getRegisteredPools() {
-        return new HashSet<>(registeredPools);
     }
 
     private ThreadPoolExecutor createExecutor(ThreadPoolConfig config) {

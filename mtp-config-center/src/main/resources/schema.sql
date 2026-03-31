@@ -6,7 +6,7 @@ CREATE TABLE IF NOT EXISTS thread_pool_config (
     core_pool_size INT COMMENT '核心线程数',
     max_pool_size INT COMMENT '最大线程数',
     queue_capacity INT COMMENT '队列容量',
-    keep_alive_seconds INT COMMENT '线程存活时间（秒）',
+    keep_alive_seconds BIGINT COMMENT '线程存活时间（秒）',
     rejected_policy VARCHAR(255) COMMENT '拒绝策略',
     ip VARCHAR(255) COMMENT '实例 IP 地址',
     port INT COMMENT '实例端口',

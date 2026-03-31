@@ -13,6 +13,8 @@ import com.mtp.core.model.ApplicationInfo;
 import com.mtp.core.model.ApplicationInfo.InstanceInfo;
 import com.mtp.core.model.ThreadPoolConfig;
 import com.mtp.core.model.ThreadPoolStatus;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.BeanUtils;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.CollectionUtils;
@@ -23,6 +25,7 @@ import java.util.stream.Collectors;
 @Transactional
 public class MyBatisPlusConfigCenterRepository implements ConfigCenterRepository {
 
+    private static final Logger log = LoggerFactory.getLogger(MyBatisPlusConfigCenterRepository.class);
     private final ThreadPoolConfigMapper configMapper;
     private final ThreadPoolStatusMapper statusMapper;
     private final ClientRegistryMapper clientRegistryMapper;
@@ -44,9 +47,12 @@ public class MyBatisPlusConfigCenterRepository implements ConfigCenterRepository
                .eq(ThreadPoolConfigEntity::getPoolName, entity.getPoolName());
         ThreadPoolConfigEntity existing = configMapper.selectOne(wrapper);
         if (existing != null) {
-            configMapper.updateById(entity);
+            //configMapper.updateById(entity);
+            //以配置中心配置为准
+            log.info("Exist thread pool config: [{}:{}]", entity.getInstanceId(), entity.getPoolName());
         } else {
             configMapper.insert(entity);
+            log.info("Registered config: [{}:{}]", config.getInstanceId(), config.getPoolName());
         }
     }
 

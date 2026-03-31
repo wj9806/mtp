@@ -40,7 +40,7 @@
                     >
                       {{ instance.ip }}:{{ instance.port }}
                     </el-tag>
-                    <el-tag v-if="app.instances && app.instances.length > 6" size="small">
+                    <el-tag v-if="app.instances && app.instances.length > 9" size="small">
                       ......
                     </el-tag>
                   </div>
@@ -133,7 +133,7 @@ const filteredInstances = computed(() => {
 
 const getDisplayInstances = (instances) => {
   if (!instances) return []
-  return instances.slice(0, 6)
+  return instances.slice(0, 9)
 }
 
 const loadApplications = async () => {

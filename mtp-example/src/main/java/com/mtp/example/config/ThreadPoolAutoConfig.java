@@ -2,9 +2,16 @@ package com.mtp.example.config;
 
 import com.mtp.core.api.DynamicThreadPoolManager;
 import com.mtp.core.model.ThreadPoolConfig;
+import com.mtp.starter.Mtp;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Import;
+import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
+
+import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 
 /**
  * 线程池自动配置类，用于初始化示例应用的线程池
@@ -12,6 +19,27 @@ import org.springframework.context.annotation.Configuration;
 @Configuration
 @ConditionalOnProperty(prefix = "mtp", name = "enabled", havingValue = "true")
 public class ThreadPoolAutoConfig {
+
+    @Bean
+    @Mtp("test-spring-pool")
+    public ThreadPoolTaskExecutor testSpringPool() {
+        ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
+        executor.setCorePoolSize(10);
+        executor.setMaxPoolSize(20);
+        executor.setQueueCapacity(100);
+        executor.setKeepAliveSeconds(60);
+        executor.setRejectedExecutionHandler(new ThreadPoolExecutor.CallerRunsPolicy());
+        executor.initialize();
+        return executor;
+    }
+
+    @Bean
+    @Mtp("test-pool")
+    public ThreadPoolExecutor threadPoolExecutor() {
+        return new ThreadPoolExecutor(10, 20, 60L,
+                TimeUnit.SECONDS, new ArrayBlockingQueue<>(100),
+                new ThreadPoolExecutor.CallerRunsPolicy());
+    }
 
     @Bean
     public ThreadPoolInitializer threadPoolInitializer(DynamicThreadPoolManager threadPoolManager) {
